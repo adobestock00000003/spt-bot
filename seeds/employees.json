@@ -1,0 +1,218 @@
+[
+  {
+    "order": 1,
+    "name": "ALI AFANDI, S.Pd., M.T.",
+    "gender": "L",
+    "position": "KEPALA BIDANG PEMASARAN DAN KELEMBAGAAN PAREKRAF",
+    "rank": "Pembina Tk. I (IV/b)",
+    "identifier": "197403252000031003",
+    "active": true
+  },
+  {
+    "order": 2,
+    "name": "LUKY NURAINI ROSYIDAH, S.STP., M.AP.",
+    "gender": "P",
+    "position": "Adyatama Parekraf Ahli Muda",
+    "rank": "Penata Tk. I (III/d)",
+    "identifier": "198609152006022001",
+    "active": true
+  },
+  {
+    "order": 3,
+    "name": "CHANDRA NURHIDAYAT., S.Hub.,Int.",
+    "gender": "L",
+    "position": "Adyatama Parekraf Ahli Muda",
+    "rank": "Penata (III/c)",
+    "identifier": "198810202014031004",
+    "active": true
+  },
+  {
+    "order": 4,
+    "name": "SARI WASANANING A.P, S.S.",
+    "gender": "P",
+    "position": "Adyatama Parekraf Ahli Pertama",
+    "rank": "Penata Muda Tk. I (III/b)",
+    "identifier": "198401182014032001",
+    "active": true
+  },
+  {
+    "order": 5,
+    "name": "YEKTI LESTARI, S.St.Par.",
+    "gender": "P",
+    "position": "Penelaah Teknis Kebijakan",
+    "rank": "Penata Tk. I (III/d)",
+    "identifier": "197712242006042021",
+    "active": true
+  },
+  {
+    "order": 6,
+    "name": "ISMADI, SE., MM.",
+    "gender": "L",
+    "position": "Penelaah Teknis Kebijakan",
+    "rank": "Penata (III/c)",
+    "identifier": "197304201995031004",
+    "active": true
+  },
+  {
+    "order": 7,
+    "name": "IBNU PURWANTAMA S.Par.",
+    "gender": "L",
+    "position": "Pengolah Data dan Informasi",
+    "rank": "Penata Muda Tk. I (III/b)",
+    "identifier": "199503142020121015",
+    "active": true
+  },
+  {
+    "order": 8,
+    "name": "YEREMIA PURBOWIDODO SANTOSO, S.E",
+    "gender": "L",
+    "position": "Fasilitator Pemerintahan - Keuangan",
+    "rank": "Penata Muda (III/a)",
+    "identifier": "199002042025041003",
+    "active": true
+  },
+  {
+    "order": 9,
+    "name": "ARI DEVINTA PURWATI, S.Tr.M.",
+    "gender": "P",
+    "position": "Adyatama Parekraf Ahli Pertama",
+    "rank": "Penata Muda (III/a)",
+    "identifier": "199701032025042004",
+    "active": true
+  },
+  {
+    "order": 10,
+    "name": "WISNU ADY SEPTIAN, S.IP.",
+    "gender": "L",
+    "position": "Pranata Hubungan Masyarakat Ahli Pertama",
+    "rank": "-/IX",
+    "identifier": "199309252024211018",
+    "active": true
+  },
+  {
+    "order": 11,
+    "name": "HARIYANTO S.E.",
+    "gender": "L",
+    "position": "Adyatama Parekraf Ahli Pertama",
+    "rank": "-/IX",
+    "identifier": "197805022024211004",
+    "active": true
+  },
+  {
+    "order": 12,
+    "name": "ANNEKE CHITRA GHIANTI, S.M.",
+    "gender": "P",
+    "position": "Analis Perdagangan Ahli Pertama",
+    "rank": "-/IX",
+    "identifier": "199701012024212003",
+    "active": true
+  },
+  {
+    "order": 13,
+    "name": "SOFYANA SISKA, S.S.",
+    "gender": "P",
+    "position": "Penata Layanan Operasional",
+    "rank": "-/IX",
+    "identifier": "198611082025212003",
+    "active": true
+  },
+  {
+    "order": 14,
+    "name": "ACHMAD RIZA MAULANA, S.T.",
+    "gender": "L",
+    "position": "Penata Layanan Operasional",
+    "rank": "-/IX",
+    "identifier": "199606062025211002",
+    "active": true
+  },
+  {
+    "order": 15,
+    "name": "NUR FAJAR",
+    "gender": "L",
+    "position": "Operator Layanan Operasional",
+    "rank": "-/V",
+    "identifier": "198909252025211116",
+    "active": true
+  },
+  {
+    "order": 16,
+    "name": "ANGGI MEIKA PRATAMASARI., S.S.",
+    "gender": "P",
+    "position": "Penata Layanan Operasional",
+    "rank": "-/IX",
+    "identifier": "198905172025212108",
+    "active": true
+  },
+  {
+    "order": 17,
+    "name": "INDRA RIZKY FAUZI , S.E.",
+    "gender": "L",
+    "position": "Penata Layanan Operasional",
+    "rank": "-/IX",
+    "identifier": "199202112025211100",
+    "active": true
+  },
+  {
+    "order": 18,
+    "name": "EGHITA DESIANE NARESWARI, S.Hum., M.Si",
+    "gender": "P",
+    "position": "Penata Layanan Operasional",
+    "rank": "-/IX",
+    "identifier": "199512032025212106",
+    "active": true
+  },
+  {
+    "order": 19,
+    "name": "WULAN BUDI INDRASWARI, S.Ds.",
+    "gender": "P",
+    "position": "Penata Layanan Operasional",
+    "rank": "-/IX",
+    "identifier": "199408052025212140",
+    "active": true
+  },
+  {
+    "order": 20,
+    "name": "VIKO SATRIA PRATAMA, A.Md.Kom.",
+    "gender": "L",
+    "position": "Tenaga Ahli",
+    "rank": "-",
+    "identifier": "118-27092001-012024-7321",
+    "active": true
+  },
+  {
+    "order": 21,
+    "name": "RUSSEL ADESUBROTO, S.E.",
+    "gender": "L",
+    "position": "Tenaga Ahli",
+    "rank": "-",
+    "identifier": "-",
+    "active": true
+  },
+  {
+    "order": 22,
+    "name": "SATRIA DEVI KURNIAWAN, S.STP.",
+    "gender": "L",
+    "position": "Adyatama Parekraf Ahli Muda",
+    "rank": "Penata Tk. I (III/d)",
+    "identifier": "199001012010101001",
+    "active": true
+  },
+  {
+    "order": 23,
+    "name": "WAHYU SULTONI ALIF MUHAMMAD",
+    "gender": "L",
+    "position": "Operator Layanan Operasional",
+    "rank": "-/V",
+    "identifier": "199805032025211001",
+    "active": true
+  },
+  {
+    "order": 24,
+    "name": "Dra. MARFU'AH SUHARTI. M.Psi.",
+    "gender": "P",
+    "position": "Adyatama Parekraf Ahli Madya",
+    "rank": "Pembina Tk. I (IV/b)",
+    "identifier": "196603112002122001",
+    "active": true
+  }
+]
