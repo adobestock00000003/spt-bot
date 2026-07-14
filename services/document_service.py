@@ -17,7 +17,7 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt
 from docx.text.paragraph import Paragraph
 
-from config import DOCUMENTS_DIR, TEMPLATE_PATH
+from config import DOCUMENTS_DIR, TEMPLATE_PATH, TNDE_TEMPLATE_PATH
 from utils import clean_rank, format_date_id, slugify
 
 
@@ -480,6 +480,58 @@ def generate_docx(
     return output_path
 
 
+def generate_tnde_docx(
+    *,
+    sequence_number: int,
+    destination: str,
+    activity: str,
+    issue_date: date,
+    employees: list[dict[str, Any]],
+    legal_bases: list[str],
+    purpose_text: str,
+    version: int = 1,
+    output_dir: Path = DOCUMENTS_DIR,
+    issue_city: str = "Surabaya",
+    template_path: Path = TNDE_TEMPLATE_PATH,
+) -> Path:
+    """Generate the TNDE upload template with TNDE substitution placeholders.
+
+    The letter number and electronic-signature identity are intentionally kept as
+    ${nomor}, ${qrcode}, ${PEJABAT}, ${pangkat}, and ${nip} so the TNDE system can
+    substitute them later. Letter content, employees, legal bases, purpose, and
+    issue date are populated from the bot draft.
+    """
+    if not employees:
+        raise DocumentGenerationError("Minimal satu pegawai harus dipilih.")
+    if not template_path.exists():
+        raise DocumentGenerationError(f"Template TNDE tidak ditemukan: {template_path}")
+    if len(legal_bases) < 3:
+        raise DocumentGenerationError("Minimal tiga dasar utama harus tersedia.")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    version_suffix = "" if version <= 1 else f"_v{version}"
+    number_part = str(sequence_number) if sequence_number > 0 else "TANPA_NOMOR"
+    filename = (
+        f"SPT_TNDE_{number_part}_{slugify(destination, 35)}_"
+        f"{slugify(activity, 45)}{version_suffix}.docx"
+    )
+    output_path = output_dir / filename
+    shutil.copy2(template_path, output_path)
+
+    doc = Document(output_path)
+    # TNDE requires placeholders, not a fixed printed number or signatory identity.
+    _replace_number(doc, "${nomor}")
+    _replace_legal_bases(doc, legal_bases)
+    _replace_employee_table(doc, employees)
+    _replace_purpose(doc, purpose_text)
+    _replace_signature_block(doc, issue_date, issue_city)
+    if doc.tables and doc.tables[-1].rows:
+        _set_row_cant_split(doc.tables[-1].rows[0])
+    _normalize_body_font(doc)
+    doc.save(output_path)
+    return output_path
+
+
 
 def _force_purpose_to_next_page(docx_path: Path) -> bool:
     """Move the UNTUK block to a fresh page without altering template spacing.
@@ -585,6 +637,58 @@ def convert_docx_to_pdf(docx_path: Path) -> Path | None:
         if not _signature_block_is_safe(pdf_path):
             raise DocumentGenerationError(
                 "Blok tanda tangan masih berada di luar area halaman setelah pagination otomatis."
+            )
+
+    return pdf_path
+
+def _tnde_signature_block_is_safe(pdf_path: Path, *, bottom_safe_margin_pt: float = 52.0) -> bool:
+    """Check that the TNDE NIP placeholder is visible above the legal footer."""
+    try:
+        import fitz
+    except Exception:
+        return True
+
+    target = "${nip}"
+    try:
+        pdf = fitz.open(pdf_path)
+        try:
+            for page in pdf:
+                rects = page.search_for(target)
+                if not rects:
+                    continue
+                lowest = max(rects, key=lambda rect: rect.y1)
+                return lowest.y1 <= (page.rect.height - bottom_safe_margin_pt)
+        finally:
+            pdf.close()
+    except Exception:
+        return True
+    return False
+
+
+def convert_tnde_docx_to_pdf(docx_path: Path) -> Path | None:
+    """Convert a TNDE DOCX to PDF while keeping its signature block above the footer."""
+    docx_path = Path(docx_path)
+    if not docx_path.exists():
+        raise FileNotFoundError(docx_path)
+
+    executable = shutil.which("libreoffice") or shutil.which("soffice")
+    if not executable:
+        return None
+
+    output_dir = docx_path.parent
+    pdf_path = _convert_once(docx_path, output_dir, executable)
+    if pdf_path is None:
+        return None
+
+    if not _tnde_signature_block_is_safe(pdf_path):
+        changed = _force_purpose_to_next_page(docx_path)
+        if changed:
+            pdf_path = _convert_once(docx_path, output_dir, executable)
+            if pdf_path is None:
+                return None
+        if not _tnde_signature_block_is_safe(pdf_path):
+            raise DocumentGenerationError(
+                "Blok tanda tangan TNDE masih terlalu dekat dengan footer setelah pagination otomatis."
             )
 
     return pdf_path

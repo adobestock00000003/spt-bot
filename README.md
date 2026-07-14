@@ -2,7 +2,7 @@
 
 Bot Telegram untuk membuat, menyimpan, mengunduh, menduplikasi, dan merevisi Surat Tugas berdasarkan template resmi Word yang diberikan.
 
-## Fitur versi 2.5
+## Fitur versi 2.8
 
 - Pembuatan Surat Tugas melalui tombol Telegram.
 - Multi-pilih pegawai dari 24 data pegawai pada Excel `DATA PEGAWAI BID PEMASARAN.xlsx`.
@@ -15,6 +15,10 @@ Bot Telegram untuk membuat, menyimpan, mengunduh, menduplikasi, dan merevisi Sur
 - Input Event/Acara dihapus; nama event dapat langsung ditulis sebagai bagian dari Kegiatan bila diperlukan.
 - Nomor surat semi otomatis dengan format default `000.1.2.3 / [NOMOR] / 118.4 / [TAHUN]`.
 - Output DOCX menggunakan template `SPT 2026 FIX` dan output PDF melalui LibreOffice.
+- Export khusus **TNDE** dari preview maupun riwayat surat.
+- Versi TNDE mempertahankan placeholder `${nomor}`, `${qrcode}`, `${PEJABAT}`, `${pangkat}`, dan `${nip}` untuk substitusi oleh sistem TNDE.
+- Template TNDE mengikuti contoh resmi yang diberikan, termasuk footer informasi tanda tangan elektronik BSrE-BSSN.
+- Export TNDE tersedia dalam DOCX dan PDF preview; data pegawai, Dasar 4 opsional, narasi UNTUK, dan tanggal penetapan mengikuti draft/snapshot surat.
 - Dasar hukum utama memakai nomor 1-3 dari template 2026; Dasar nomor 4 bersifat opsional dan dapat digunakan, diedit, atau dihilangkan per surat.
 - Isi surat menggunakan font Arial ukuran 12 pt.
 - Layout daftar pegawai dibuat adaptif; setiap blok pegawai dijaga agar tidak terpotong di tengah saat berpindah halaman.
@@ -29,6 +33,14 @@ Bot Telegram untuk membuat, menyimpan, mengunduh, menduplikasi, dan merevisi Sur
 - Admin dan operator berbasis Telegram ID.
 - Statistik sederhana.
 - Penyimpanan persisten kompatibel dengan Railway Volume di `/data`.
+
+### Export TNDE v2.8
+
+- Tombol **Export Versi TNDE** tersedia di preview, setelah surat standar dibuat, dan dari riwayat surat.
+- Nomor surat TNDE tetap berupa `${nomor}` agar diisi oleh sistem TNDE.
+- Blok tanda tangan elektronik memakai `${qrcode}`, `${PEJABAT}`, `${pangkat}`, dan `${nip}`.
+- Footer legal tanda tangan elektronik dan logo Balai Sertifikasi Elektronik mengikuti template contoh TNDE.
+- Pagination TNDE menjaga blok tanda tangan tetap berada di atas footer, termasuk untuk jumlah pegawai banyak.
 
 ### Safety pagination v2.7
 
@@ -53,7 +65,8 @@ spt_telegram_bot/
 ├── services/
 │   └── document_service.py
 ├── templates/
-│   └── SPT_template.docx
+│   ├── SPT_template.docx
+│   └── SPT_template_TNDE.docx
 ├── seeds/
 │   ├── employees.json
 │   └── DATA_PEGAWAI_BID_PEMASARAN.xlsx

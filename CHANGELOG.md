@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.8.0
+
+- Menambahkan export khusus **Versi TNDE** dari preview dan riwayat surat.
+- Menambahkan template `SPT_template_TNDE.docx` berdasarkan contoh TNDE yang diberikan.
+- Nomor dan identitas penandatangan TNDE dipertahankan sebagai placeholder `${nomor}`, `${qrcode}`, `${PEJABAT}`, `${pangkat}`, dan `${nip}`.
+- Menambahkan footer informasi tanda tangan elektronik BSrE-BSSN beserta logo Balai Sertifikasi Elektronik.
+- Export TNDE menghasilkan DOCX dan PDF preview.
+- Data pegawai, Dasar nomor 4 opsional, UNTUK, dan tanggal penetapan tetap mengikuti data surat.
+- Menambahkan safety pagination khusus TNDE agar blok tanda tangan tidak bertabrakan dengan footer.
+
 ## v2.7.0
 
 - Memperbaiki kasus 4-5 pegawai ketika baris **NIP Kepala Dinas** dapat terpotong di bawah halaman.

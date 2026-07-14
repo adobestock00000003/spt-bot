@@ -22,7 +22,12 @@ from telegram.ext import (
 
 from config import BOT_TOKEN, DATA_DIR, DOCUMENTS_DIR, DEFAULT_OPTIONAL_LEGAL_BASE_4
 from database import Database
-from services.document_service import convert_docx_to_pdf, generate_docx
+from services.document_service import (
+    convert_docx_to_pdf,
+    convert_tnde_docx_to_pdf,
+    generate_docx,
+    generate_tnde_docx,
+)
 from utils import (
     build_purpose_text,
     clean_rank,
@@ -407,6 +412,7 @@ def preview_markup() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [menu_button("✅ Buat DOCX + PDF", "create:generate")],
+            [menu_button("🧾 Export Versi TNDE", "create:generate_tnde")],
             [
                 menu_button("👥 Edit Pegawai", "create:edit_employees"),
                 menu_button("📍 Edit Tujuan", "create:edit_destination"),
@@ -510,12 +516,123 @@ async def generate_letter(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         "Pilih tindakan selanjutnya:",
         reply_markup=InlineKeyboardMarkup(
             [
+                [menu_button("🧾 Export Versi TNDE", f"history:tnde:{letter_id}")],
                 [menu_button("📋 Lihat Riwayat", "history:list")],
                 [menu_button("➕ Buat Surat Lagi", "create:start")],
                 [menu_button("🏠 Menu Utama", "menu:home")],
             ]
         ),
     )
+
+
+async def generate_tnde_export(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Generate the current draft as a TNDE-ready DOCX/PDF without changing history."""
+    if not await require_access(update):
+        return
+    query = update.callback_query
+    await query.answer("Membuat versi TNDE...")
+    draft = get_draft(context)
+    employees_rows = [db.get_employee(i) for i in draft.get("employee_ids", [])]
+    employees = [dict(row) for row in employees_rows if row]
+    legal_rows = db.list_legal_bases(active_only=True)
+    primary_legal_bases = list(
+        draft.get("legal_bases") or [row["text"] for row in legal_rows]
+    )[:3]
+    legal_bases = list(primary_legal_bases)
+    if draft.get("legal_base_4"):
+        legal_bases.append(str(draft["legal_base_4"]).strip())
+    issue_city = db.get_setting("issue_city", "Surabaya")
+
+    try:
+        docx_path = await asyncio.to_thread(
+            generate_tnde_docx,
+            sequence_number=int(draft.get("sequence_number") or 0),
+            destination=draft["destination"],
+            activity=draft["activity"],
+            issue_date=draft["issue_date"],
+            employees=employees,
+            legal_bases=legal_bases,
+            purpose_text=draft["purpose_text"],
+            version=int(draft.get("version", 1)),
+            issue_city=issue_city,
+        )
+        pdf_path = await asyncio.to_thread(convert_tnde_docx_to_pdf, docx_path)
+    except Exception as exc:
+        logger.exception("Gagal membuat versi TNDE")
+        await query.message.reply_text(f"❌ Gagal membuat versi TNDE: {exc}")
+        return
+
+    await query.message.reply_text(
+        "✅ <b>Versi TNDE berhasil dibuat.</b>\n\n"
+        "Placeholder <code>${nomor}</code>, <code>${qrcode}</code>, "
+        "<code>${PEJABAT}</code>, <code>${pangkat}</code>, dan "
+        "<code>${nip}</code> sengaja dipertahankan untuk diproses oleh TNDE.",
+        parse_mode=ParseMode.HTML,
+    )
+    with open(docx_path, "rb") as fh:
+        await query.message.reply_document(
+            document=fh, filename=Path(docx_path).name, caption="🧾 File Word TNDE"
+        )
+    if pdf_path and Path(pdf_path).exists():
+        with open(pdf_path, "rb") as fh:
+            await query.message.reply_document(
+                document=fh, filename=Path(pdf_path).name, caption="🧾 Preview PDF TNDE"
+            )
+    else:
+        await query.message.reply_text(
+            "⚠️ File Word TNDE berhasil dibuat, tetapi konversi PDF tidak tersedia di server ini."
+        )
+    await query.message.reply_text(
+        "Draft tetap aktif. Anda masih bisa membuat versi standar atau mengedit data.",
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [menu_button("✅ Buat Versi Standar", "create:generate")],
+                [menu_button("🔍 Kembali ke Preview", "create:preview")],
+                [menu_button("🏠 Menu Utama", "menu:home")],
+            ]
+        ),
+    )
+
+
+async def export_tnde_from_history(update: Update, letter_id: int) -> None:
+    """Regenerate a TNDE-ready export from the immutable letter snapshot."""
+    if not await require_access(update):
+        return
+    query = update.callback_query
+    item = db.get_letter(letter_id)
+    if not item:
+        await query.answer("Surat tidak ditemukan.", show_alert=True)
+        return
+    await query.answer("Membuat versi TNDE...")
+    issue_city = db.get_setting("issue_city", "Surabaya")
+    try:
+        docx_path = await asyncio.to_thread(
+            generate_tnde_docx,
+            sequence_number=int(item.get("sequence_number") or 0),
+            destination=item["destination"],
+            activity=item["activity"],
+            issue_date=date.fromisoformat(item["issue_date"]),
+            employees=list(item.get("employees") or []),
+            legal_bases=list(item.get("legal_bases") or []),
+            purpose_text=item["purpose_text"],
+            version=int(item.get("version") or 1),
+            issue_city=issue_city,
+        )
+        pdf_path = await asyncio.to_thread(convert_tnde_docx_to_pdf, docx_path)
+    except Exception as exc:
+        logger.exception("Gagal export TNDE dari riwayat")
+        await query.message.reply_text(f"❌ Gagal membuat versi TNDE: {exc}")
+        return
+
+    with open(docx_path, "rb") as fh:
+        await query.message.reply_document(
+            document=fh, filename=Path(docx_path).name, caption="🧾 File Word TNDE"
+        )
+    if pdf_path and Path(pdf_path).exists():
+        with open(pdf_path, "rb") as fh:
+            await query.message.reply_document(
+                document=fh, filename=Path(pdf_path).name, caption="🧾 Preview PDF TNDE"
+            )
 
 
 # ---------- History ----------
@@ -560,6 +677,7 @@ async def show_letter_detail(update: Update, context: ContextTypes.DEFAULT_TYPE,
             menu_button("📄 Kirim DOCX", f"history:send_docx:{letter_id}"),
             menu_button("📕 Kirim PDF", f"history:send_pdf:{letter_id}"),
         ],
+        [menu_button("🧾 Export Versi TNDE", f"history:tnde:{letter_id}")],
         [
             menu_button("📋 Duplikat", f"history:duplicate:{letter_id}"),
             menu_button("✏️ Revisi", f"history:revise:{letter_id}"),
@@ -1071,6 +1189,10 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await show_preview(update, context)
     elif data == "create:generate":
         await generate_letter(update, context)
+    elif data == "create:generate_tnde":
+        await generate_tnde_export(update, context)
+    elif data == "create:preview":
+        await show_preview(update, context)
     elif data == "create:cancel":
         reset_flow(context)
         await show_main_menu(update, context)
@@ -1129,6 +1251,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await send_history_file(update, int(data.rsplit(":", 1)[1]), "docx")
     elif data.startswith("history:send_pdf:"):
         await send_history_file(update, int(data.rsplit(":", 1)[1]), "pdf")
+    elif data.startswith("history:tnde:"):
+        await export_tnde_from_history(update, int(data.rsplit(":", 1)[1]))
     elif data.startswith("history:duplicate:"):
         item = db.get_letter(int(data.rsplit(":", 1)[1]))
         if not item:
@@ -1266,7 +1390,7 @@ def main() -> None:
     ensure_runtime_directories()
     db.initialize()
     application = build_application()
-    logger.info("Bot Surat Tugas v2.7.0 mulai berjalan")
+    logger.info("Bot Surat Tugas v2.8.0 mulai berjalan")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

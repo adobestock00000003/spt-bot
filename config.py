@@ -10,6 +10,9 @@ DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR / "data"))).resolve()
 TEMPLATE_PATH = Path(
     os.getenv("TEMPLATE_PATH", str(BASE_DIR / "templates" / "SPT_template.docx"))
 ).resolve()
+TNDE_TEMPLATE_PATH = Path(
+    os.getenv("TNDE_TEMPLATE_PATH", str(BASE_DIR / "templates" / "SPT_template_TNDE.docx"))
+).resolve()
 EMPLOYEE_SEED_PATH = BASE_DIR / "seeds" / "employees.json"
 APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Asia/Jakarta")
 

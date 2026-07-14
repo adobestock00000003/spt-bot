@@ -3,7 +3,12 @@ from pathlib import Path
 import tempfile
 
 from database import Database
-from services.document_service import convert_docx_to_pdf, generate_docx
+from services.document_service import (
+    convert_docx_to_pdf,
+    convert_tnde_docx_to_pdf,
+    generate_docx,
+    generate_tnde_docx,
+)
 from utils import build_purpose_text
 
 
@@ -58,10 +63,25 @@ def main() -> None:
         assert stress_docx.exists() and stress_docx.stat().st_size > 0
         stress_pdf = convert_docx_to_pdf(stress_docx)
 
+        tnde_docx = generate_tnde_docx(
+            sequence_number=0,
+            destination="Kabupaten Ponorogo",
+            activity="pendampingan dan pembuatan konten video KYAI LODRA",
+            issue_date=date(2026, 6, 10),
+            employees=[wisnu, riza],
+            legal_bases=legal_bases + ["Undangan dari Pemerintah Kabupaten Ponorogo;"],
+            purpose_text=purpose,
+            output_dir=tmp_path,
+        )
+        assert tnde_docx.exists() and tnde_docx.stat().st_size > 0
+        tnde_pdf = convert_tnde_docx_to_pdf(tnde_docx)
+
         print(f"DOCX 2 pegawai OK: {docx}")
         print(f"PDF 2 pegawai: {pdf if pdf else 'LibreOffice tidak tersedia'}")
         print(f"DOCX 12 pegawai OK: {stress_docx}")
         print(f"PDF 12 pegawai: {stress_pdf if stress_pdf else 'LibreOffice tidak tersedia'}")
+        print(f"DOCX TNDE OK: {tnde_docx}")
+        print(f"PDF TNDE: {tnde_pdf if tnde_pdf else 'LibreOffice tidak tersedia'}")
 
 
 if __name__ == "__main__":
