@@ -104,6 +104,7 @@ class Database:
         self._seed_employees()
         self._seed_legal_bases()
         self._migrate_legacy_default_legal_bases()
+        self._migrate_ali_afandi_position_casing()
         self._sync_admins_from_env()
 
     def _seed_settings(self) -> None:
@@ -184,6 +185,24 @@ class Database:
             conn.executemany(
                 "INSERT INTO legal_bases(sort_order, text, active, updated_at) VALUES (?, ?, 1, ?)",
                 [(i, text, now) for i, text in enumerate(DEFAULT_LEGAL_BASES, start=1)],
+            )
+
+    def _migrate_ali_afandi_position_casing(self) -> None:
+        """Keep Ali Afandi's job-title capitalization in the requested official form.
+
+        This also updates existing Railway databases, not only fresh seed data.
+        """
+        requested = "Kepala Bidang Pemasaran dan Kelembagaan Parekraf"
+        now = datetime.now().isoformat(timespec="seconds")
+        with self.connect() as conn:
+            conn.execute(
+                """
+                UPDATE employees
+                SET position=?, updated_at=?
+                WHERE UPPER(name) LIKE 'ALI AFANDI%'
+                  AND position <> ?
+                """,
+                (requested, now, requested),
             )
 
     def _sync_admins_from_env(self) -> None:

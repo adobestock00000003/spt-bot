@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.5.0
+- Menambahkan satu baris kosong setelah **MEMERINTAHKAN** sebelum blok **KEPADA**.
+- Mempertahankan teks dan format **KEPADA** dari template resmi tanpa menulis ulang isinya.
+- Daftar pegawai dinamis dipindahkan ke bawah blok KEPADA agar tetap rapi untuk sedikit maupun banyak pegawai.
+- Jabatan Ali Afandi diperbarui menjadi **Kepala Bidang Pemasaran dan Kelembagaan Parekraf**, termasuk migrasi database Railway yang sudah ada.
+- Baris **Ditetapkan di** dan **pada tanggal** disejajarkan dengan sisi kiri blok **KEPALA DINAS / KEBUDAYAAN DAN PARIWISATA / PROVINSI JAWA TIMUR**.
+- Semua preservasi ruang kosong template dari v2.4 tetap dipertahankan.
+
 ## v2.4.0
 - Nomor surat dapat dilewati atau dikosongkan sementara.
 - Saat nomor kosong, format dokumen tetap menampilkan ruang nomor yang lebar di antara prefix dan suffix.

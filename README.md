@@ -2,7 +2,7 @@
 
 Bot Telegram untuk membuat, menyimpan, mengunduh, menduplikasi, dan merevisi Surat Tugas berdasarkan template resmi Word yang diberikan.
 
-## Fitur versi 2.4
+## Fitur versi 2.5
 
 - Pembuatan Surat Tugas melalui tombol Telegram.
 - Multi-pilih pegawai dari 24 data pegawai pada Excel `DATA PEGAWAI BID PEMASARAN.xlsx`.
@@ -29,6 +29,13 @@ Bot Telegram untuk membuat, menyimpan, mengunduh, menduplikasi, dan merevisi Sur
 - Admin dan operator berbasis Telegram ID.
 - Statistik sederhana.
 - Penyimpanan persisten kompatibel dengan Railway Volume di `/data`.
+
+### Penyempurnaan layout v2.5
+- Satu baris kosong dipertahankan setelah **MEMERINTAHKAN** sebelum **KEPADA**.
+- **KEPADA** memakai format asli template dan tidak ditulis ulang oleh generator.
+- Jabatan Ali Afandi: **Kepala Bidang Pemasaran dan Kelembagaan Parekraf**.
+- Baris penetapan tanggal sejajar dengan blok Kepala Dinas.
+
 
 ## Struktur proyek
 

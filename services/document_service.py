@@ -27,6 +27,7 @@ class DocumentGenerationError(RuntimeError):
 
 BODY_FONT = "Arial"
 BODY_FONT_SIZE = Pt(12)
+SIGNATURE_TEXT_LEFT_INDENT = Pt(6.75)
 
 
 def _remove_paragraph(paragraph: Paragraph) -> None:
@@ -227,27 +228,85 @@ def _replace_legal_bases(doc: Document, legal_bases: list[str]) -> None:
     _format_paragraph(mem_paragraph, alignment=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
 
 
+def _ensure_blank_line_after_memerintahkan(doc: Document) -> None:
+    """Ensure one intentional empty paragraph immediately after MEMERINTAHKAN.
+
+    The official layout requires a visible blank line before the KEPADA block.
+    Existing blank paragraphs are never removed or normalized.
+    """
+    mem_paragraph = next(
+        (p for p in doc.paragraphs if p.text.strip() == "MEMERINTAHKAN"),
+        None,
+    )
+    if mem_paragraph is None:
+        raise DocumentGenerationError("Bagian MEMERINTAHKAN tidak ditemukan pada template.")
+
+    next_element = mem_paragraph._p.getnext()
+    if next_element is not None and next_element.tag == qn("w:p"):
+        text = "".join(node.text or "" for node in next_element.findall(".//" + qn("w:t")))
+        if not text.strip():
+            return
+
+    # Reuse a real empty paragraph from the official template so its spacing
+    # characteristics are preserved instead of inventing a new layout style.
+    blank_template = next((p for p in reversed(doc.paragraphs) if not p.text.strip()), None)
+    blank_element = deepcopy(blank_template._p) if blank_template is not None else OxmlElement("w:p")
+    mem_paragraph._p.addnext(blank_element)
+
+
+def _set_table_indent(table, inches: float) -> None:
+    tbl_pr = table._tbl.tblPr
+    tbl_ind = tbl_pr.first_child_found_in("w:tblInd")
+    if tbl_ind is None:
+        tbl_ind = OxmlElement("w:tblInd")
+        tbl_pr.append(tbl_ind)
+    tbl_ind.set(qn("w:w"), str(int(inches * 1440)))
+    tbl_ind.set(qn("w:type"), "dxa")
+
+
 def _replace_employee_table(doc: Document, employees: list[dict[str, Any]]) -> None:
     if not doc.tables:
         raise DocumentGenerationError("Tabel KEPADA tidak ditemukan pada template.")
 
-    old_table = doc.tables[0]
-    new_table = doc.add_table(rows=0, cols=5)
-    new_table.autofit = False
-    _remove_table_borders(new_table)
-    tbl_layout = new_table._tbl.tblPr.first_child_found_in("w:tblLayout")
+    # Preserve the official KEPADA block exactly as authored in the template.
+    # Only the old floating employee content in the right cell is cleared.
+    kepada_table = doc.tables[0]
+    if not kepada_table.rows or len(kepada_table.columns) < 2:
+        raise DocumentGenerationError("Format tabel KEPADA tidak sesuai.")
+
+    kepada_left = kepada_table.rows[0].cells[0]
+    kepada_right = kepada_table.rows[0].cells[1]
+    _clear_cell(kepada_right)
+    _set_row_cant_split(kepada_table.rows[0])
+
+    # Do not rewrite the word KEPADA or its tabs/colon. Keep the original
+    # paragraph properties verbatim and only normalize the requested font.
+    for paragraph in kepada_left.paragraphs:
+        paragraph.paragraph_format.keep_with_next = True
+        for run in paragraph.runs:
+            _set_run_font(run)
+
+    # Dynamic employee list starts below KEPADA. This keeps the official KEPADA
+    # line unchanged while still allowing many employees to flow across pages.
+    employee_table = doc.add_table(rows=0, cols=4)
+    employee_table.autofit = False
+    _remove_table_borders(employee_table)
+    _set_table_indent(employee_table, 1.00)
+
+    tbl_layout = employee_table._tbl.tblPr.first_child_found_in("w:tblLayout")
     if tbl_layout is None:
         tbl_layout = OxmlElement("w:tblLayout")
-        new_table._tbl.tblPr.append(tbl_layout)
+        employee_table._tbl.tblPr.append(tbl_layout)
     tbl_layout.set(qn("w:type"), "fixed")
 
-    # Total width ~= 6.7 inch for the template's A4 page and current margins.
-    widths = [Inches(1.00), Inches(0.38), Inches(1.20), Inches(0.22), Inches(3.88)]
-    for column, width in zip(new_table.columns, widths):
+    # Widths are the employee portion of the previous five-column layout.
+    # Total width = 5.68 in, positioned 1.00 in from the left text margin.
+    widths = [Inches(0.38), Inches(1.20), Inches(0.22), Inches(3.88)]
+    for column, width in zip(employee_table.columns, widths):
         column.width = width
 
     for index, employee in enumerate(employees, start=1):
-        row = new_table.add_row()
+        row = employee_table.add_row()
         _set_row_cant_split(row)
         values = [
             ("Nama", str(employee.get("name", "")).strip()),
@@ -256,31 +315,32 @@ def _replace_employee_table(doc: Document, employees: list[dict[str, Any]]) -> N
             ("Jabatan", str(employee.get("position", "")).strip()),
         ]
 
-        for col_idx, (cell, width) in enumerate(zip(row.cells, widths)):
+        for cell, width in zip(row.cells, widths):
             cell.width = width
             cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.TOP
             _set_cell_margins(cell, top=0, start=0, bottom=0, end=35)
             _clear_cell(cell)
 
-        _add_cell_line(row.cells[0], "KEPADA :" if index == 1 else "")
-        _add_cell_line(row.cells[1], f"{index}.")
+        _add_cell_line(row.cells[0], f"{index}.")
 
         for line_idx, (label, value) in enumerate(values):
             keep = line_idx < len(values) - 1
             spacing = 8 if line_idx == len(values) - 1 else 0
-            _add_cell_line(row.cells[2], label, keep_with_next=keep, space_after=spacing)
-            _add_cell_line(row.cells[3], ":", keep_with_next=keep, space_after=spacing)
-            _add_cell_line(row.cells[4], value, keep_with_next=keep, space_after=spacing)
+            _add_cell_line(row.cells[1], label, keep_with_next=keep, space_after=spacing)
+            _add_cell_line(row.cells[2], ":", keep_with_next=keep, space_after=spacing)
+            _add_cell_line(row.cells[3], value, keep_with_next=keep, space_after=spacing)
 
-        # Keep each employee's four lines visually together in one unsplittable row.
         for cell in row.cells:
-            for p in cell.paragraphs:
-                _format_paragraph(p)
+            for paragraph in cell.paragraphs:
+                _format_paragraph(paragraph)
 
-    # Move the newly-created table to the exact position of the original KEPADA table.
-    old_element = old_table._tbl
-    old_element.addprevious(new_table._tbl)
-    old_element.getparent().remove(old_element)
+    # Keep the official KEPADA table in place. Insert one template-style blank
+    # paragraph after it, then the dynamic employee table. This mirrors the
+    # spacing of the official two-person template and does not alter KEPADA.
+    blank_template = next((p for p in reversed(doc.paragraphs) if not p.text.strip()), None)
+    spacer = deepcopy(blank_template._p) if blank_template is not None else OxmlElement("w:p")
+    kepada_table._tbl.addnext(spacer)
+    spacer.addnext(employee_table._tbl)
 
 
 def _replace_number(doc: Document, full_number: str) -> None:
@@ -323,9 +383,11 @@ def _replace_signature_block(doc: Document, issue_date: date, issue_city: str) -
         text = paragraph.text.strip()
         if text.startswith("Ditetapkan di"):
             _set_paragraph_text_preserve_objects(paragraph, f"Ditetapkan di {issue_city}")
+            paragraph.paragraph_format.left_indent = SIGNATURE_TEXT_LEFT_INDENT
             found_city = True
         elif text.startswith("pada tanggal"):
             _set_paragraph_text_preserve_objects(paragraph, f"pada tanggal {format_date_id(issue_date)}")
+            paragraph.paragraph_format.left_indent = SIGNATURE_TEXT_LEFT_INDENT
             found_date = True
 
     # Fallback only when a custom template is missing one of the two placeholders.
@@ -334,10 +396,12 @@ def _replace_signature_block(doc: Document, issue_date: date, issue_city: str) -
         target = next((p for p in right.paragraphs if not p.text.strip()), None)
         target = target or right.add_paragraph()
         _set_paragraph_text(target, f"Ditetapkan di {issue_city}")
+        target.paragraph_format.left_indent = SIGNATURE_TEXT_LEFT_INDENT
     if not found_date:
         target = next((p for p in right.paragraphs if not p.text.strip()), None)
         target = target or right.add_paragraph()
         _set_paragraph_text(target, f"pada tanggal {format_date_id(issue_date)}")
+        target.paragraph_format.left_indent = SIGNATURE_TEXT_LEFT_INDENT
 
     # Font is normalized without touching paragraph spacing, empty paragraphs,
     # line spacing, tabs, indents, or floating signature objects.
@@ -409,6 +473,7 @@ def generate_docx(
     doc = Document(output_path)
     _replace_number(doc, full_number)
     _replace_legal_bases(doc, legal_bases)
+    _ensure_blank_line_after_memerintahkan(doc)
     _replace_employee_table(doc, employees)
     _replace_purpose(doc, purpose_text)
     _replace_signature_block(doc, issue_date, issue_city)
