@@ -2,7 +2,7 @@
 
 Bot Telegram untuk membuat, menyimpan, mengunduh, menduplikasi, dan merevisi Surat Tugas berdasarkan template resmi Word yang diberikan.
 
-## Fitur versi 2.8
+## Fitur versi 2.9
 
 - Pembuatan Surat Tugas melalui tombol Telegram.
 - Multi-pilih pegawai dari 24 data pegawai pada Excel `DATA PEGAWAI BID PEMASARAN.xlsx`.
@@ -33,6 +33,10 @@ Bot Telegram untuk membuat, menyimpan, mengunduh, menduplikasi, dan merevisi Sur
 - Admin dan operator berbasis Telegram ID.
 - Statistik sederhana.
 - Penyimpanan persisten kompatibel dengan Railway Volume di `/data`.
+
+### Tanda tangan Kepala Dinas otomatis
+
+Surat Tugas biasa otomatis memakai tanda tangan Kepala Dinas yang sudah disertakan pada folder `assets`. Tanda tangan ditempatkan pada ruang tanda tangan tanpa menghapus space kosong template. Export TNDE **tidak** memakai gambar tanda tangan.
 
 ### Export TNDE v2.8
 
@@ -192,3 +196,8 @@ Nomor surat menggunakan mode semi otomatis. Bot memberi saran nomor berikutnya, 
 
 ### Aturan preservasi template (v2.4)
 Bot tidak menghapus atau merapatkan paragraf kosong/space kosong yang sudah ada di template resmi. Normalisasi font ke Arial 12 hanya mengubah font, bukan jarak paragraf, line spacing, tab, indent, atau ruang tanda tangan. Jika template resmi memiliki ruang kosong yang disengaja, ruang tersebut dipertahankan.
+
+
+## Tanda tangan Kepala Dinas
+
+Saat membuat Surat Tugas versi standar, bot menanyakan apakah dokumen memakai tanda tangan Kepala Dinas atau tetap kosong. Pilihan tanda tangan tidak berlaku untuk export TNDE; TNDE selalu menggunakan placeholder tanda tangan elektronik.

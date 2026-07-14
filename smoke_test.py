@@ -1,6 +1,7 @@
 from datetime import date
 from pathlib import Path
 import tempfile
+from zipfile import ZipFile
 
 from database import Database
 from services.document_service import (
@@ -40,10 +41,31 @@ def main() -> None:
             employees=[wisnu, riza],
             legal_bases=legal_bases + ["Undangan dari Pemerintah Kabupaten Ponorogo;"],
             purpose_text=purpose,
+            include_signature=True,
             output_dir=tmp_path,
         )
         assert docx.exists() and docx.stat().st_size > 0
+        with ZipFile(docx) as archive:
+            normal_media = [name for name in archive.namelist() if name.startswith("word/media/")]
+            assert any("image" in name for name in normal_media), "Surat biasa harus memuat gambar tanda tangan."
         pdf = convert_docx_to_pdf(docx)
+
+        unsigned_docx = generate_docx(
+            full_number=database.format_blank_full_number(2026),
+            sequence_number=0,
+            destination="Kabupaten Ponorogo",
+            activity="pendampingan dan pembuatan konten video KYAI LODRA",
+            issue_date=date(2026, 6, 10),
+            employees=[wisnu, riza],
+            legal_bases=legal_bases + ["Undangan dari Pemerintah Kabupaten Ponorogo;"],
+            purpose_text=purpose,
+            include_signature=False,
+            output_dir=tmp_path,
+        )
+        with ZipFile(unsigned_docx) as archive:
+            document_xml = archive.read("word/document.xml")
+            assert b"Tanda Tangan Kepala Dinas" not in document_xml, "Mode tanpa TTD tidak boleh memuat gambar tanda tangan."
+        unsigned_pdf = convert_docx_to_pdf(unsigned_docx)
 
         stress_docx = generate_docx(
             full_number="000.1.2.3 / 124 / 118.4 / 2026",
@@ -58,6 +80,7 @@ def main() -> None:
                 "pembuatan konten promosi pariwisata selama 4 (empat) hari pada tanggal "
                 "20-23 Juli 2026."
             ),
+            include_signature=True,
             output_dir=tmp_path,
         )
         assert stress_docx.exists() and stress_docx.stat().st_size > 0
@@ -74,10 +97,15 @@ def main() -> None:
             output_dir=tmp_path,
         )
         assert tnde_docx.exists() and tnde_docx.stat().st_size > 0
+        with ZipFile(tnde_docx) as archive:
+            document_xml = archive.read("word/document.xml")
+            assert b"Tanda Tangan Kepala Dinas" not in document_xml, "TNDE tidak boleh memakai gambar tanda tangan manual."
         tnde_pdf = convert_tnde_docx_to_pdf(tnde_docx)
 
         print(f"DOCX 2 pegawai OK: {docx}")
-        print(f"PDF 2 pegawai: {pdf if pdf else 'LibreOffice tidak tersedia'}")
+        print(f"PDF 2 pegawai dengan TTD: {pdf if pdf else 'LibreOffice tidak tersedia'}")
+        print(f"DOCX 2 pegawai tanpa TTD OK: {unsigned_docx}")
+        print(f"PDF 2 pegawai tanpa TTD: {unsigned_pdf if unsigned_pdf else 'LibreOffice tidak tersedia'}")
         print(f"DOCX 12 pegawai OK: {stress_docx}")
         print(f"PDF 12 pegawai: {stress_pdf if stress_pdf else 'LibreOffice tidak tersedia'}")
         print(f"DOCX TNDE OK: {tnde_docx}")

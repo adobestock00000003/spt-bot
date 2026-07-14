@@ -190,3 +190,11 @@ Periksa:
 - Service status aktif.
 - Logs tidak menunjukkan token invalid.
 - Hanya satu instance bot yang menggunakan polling dengan token yang sama.
+
+## Tanda tangan Kepala Dinas
+
+Versi 2.9 sudah menyertakan asset tanda tangan default pada folder `assets`. Tidak perlu upload tanda tangan ke Railway. Surat biasa otomatis memakai tanda tangan tersebut, sedangkan export TNDE tetap tanpa gambar tanda tangan.
+
+## v3.0 - tanda tangan opsional
+
+Pada preview pilih **Buat DOCX + PDF**, lalu bot akan meminta pilihan **Pakai Tanda Tangan** atau **Tanpa Tanda Tangan**. Export TNDE tetap tanpa gambar tanda tangan manual.

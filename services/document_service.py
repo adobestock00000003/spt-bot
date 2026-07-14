@@ -17,7 +17,7 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt
 from docx.text.paragraph import Paragraph
 
-from config import DOCUMENTS_DIR, TEMPLATE_PATH, TNDE_TEMPLATE_PATH
+from config import DOCUMENTS_DIR, SIGNATURE_IMAGE_PATH, TEMPLATE_PATH, TNDE_TEMPLATE_PATH
 from utils import clean_rank, format_date_id, slugify
 
 
@@ -28,6 +28,12 @@ class DocumentGenerationError(RuntimeError):
 BODY_FONT = "Arial"
 BODY_FONT_SIZE = Pt(12)
 SIGNATURE_TEXT_LEFT_INDENT = Pt(6.75)
+SIGNATURE_IMAGE_WIDTH = Inches(1.70)
+SIGNATURE_IMAGE_TOP_OFFSET_EMU = 500000
+SIGNATURE_IMAGE_HORIZONTAL_SHIFT_EMU = -625000
+SIGNATURE_BOX_LEFT_OFFSET_EMU = -104775
+SIGNATURE_BOX_WIDTH_EMU = 3137535
+
 
 
 def _remove_paragraph(paragraph: Paragraph) -> None:
@@ -409,6 +415,123 @@ def _replace_signature_block(doc: Document, issue_date: date, issue_city: str) -
             _set_run_font(run)
 
 
+def _next_drawing_id(doc: Document) -> int:
+    ids: list[int] = []
+    for node in doc.element.xpath(".//wp:docPr"):
+        raw = node.get("id")
+        try:
+            ids.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+    return (max(ids) + 1) if ids else 1
+
+
+def _insert_default_signature_image(
+    doc: Document,
+    signature_path: Path = SIGNATURE_IMAGE_PATH,
+) -> None:
+    """Overlay the approved Kepala Dinas signature on the normal SPT only.
+
+    The official signatory block is a floating text box with intentional empty
+    lines. The image is added as a floating drawing anchored to the same date
+    paragraph, so it occupies the existing signature space without deleting or
+    compressing any blank paragraphs in the template.
+    """
+    if not signature_path.exists():
+        raise DocumentGenerationError(f"File tanda tangan Kepala Dinas tidak ditemukan: {signature_path}")
+    if len(doc.tables) < 2 or not doc.tables[-1].rows or len(doc.tables[-1].columns) < 2:
+        raise DocumentGenerationError("Blok tanda tangan surat tidak ditemukan pada template.")
+
+    right = doc.tables[-1].rows[0].cells[1]
+    anchor_paragraph = next(
+        (p for p in right.paragraphs if p.text.strip().startswith("pada tanggal")),
+        None,
+    )
+    if anchor_paragraph is None:
+        raise DocumentGenerationError("Paragraf tanggal untuk jangkar tanda tangan tidak ditemukan.")
+
+    run = anchor_paragraph.add_run()
+    run.add_picture(str(signature_path), width=SIGNATURE_IMAGE_WIDTH)
+    inline = run._r.find(qn("w:drawing") + "/" + qn("wp:inline"))
+    if inline is None:
+        raise DocumentGenerationError("Gagal menyiapkan gambar tanda tangan.")
+
+    extent = inline.find(qn("wp:extent"))
+    graphic = inline.find(qn("a:graphic"))
+    if extent is None or graphic is None:
+        raise DocumentGenerationError("Struktur gambar tanda tangan tidak lengkap.")
+
+    cx = int(extent.get("cx"))
+    cy = int(extent.get("cy"))
+    # Center against the official signatory text box, then shift slightly left.
+    # The source signature has a long right-hand stroke; a pure geometric center
+    # looks visually too far to the right. The optical correction keeps the ink
+    # centered over the signatory name without changing the official text box.
+    centered_left = (
+        SIGNATURE_BOX_LEFT_OFFSET_EMU
+        + (SIGNATURE_BOX_WIDTH_EMU - cx) // 2
+        + SIGNATURE_IMAGE_HORIZONTAL_SHIFT_EMU
+    )
+
+    drawing = run._r.find(qn("w:drawing"))
+    if drawing is None:
+        raise DocumentGenerationError("Elemen drawing tanda tangan tidak ditemukan.")
+    drawing.remove(inline)
+
+    anchor = OxmlElement("wp:anchor")
+    for key, value in {
+        "distT": "0",
+        "distB": "0",
+        "distL": "0",
+        "distR": "0",
+        "simplePos": "0",
+        "relativeHeight": "251826177",
+        "behindDoc": "0",
+        "locked": "0",
+        "layoutInCell": "1",
+        "allowOverlap": "1",
+    }.items():
+        anchor.set(key, value)
+
+    simple_pos = OxmlElement("wp:simplePos")
+    simple_pos.set("x", "0")
+    simple_pos.set("y", "0")
+    anchor.append(simple_pos)
+
+    position_h = OxmlElement("wp:positionH")
+    position_h.set("relativeFrom", "column")
+    pos_h_offset = OxmlElement("wp:posOffset")
+    pos_h_offset.text = str(centered_left)
+    position_h.append(pos_h_offset)
+    anchor.append(position_h)
+
+    position_v = OxmlElement("wp:positionV")
+    position_v.set("relativeFrom", "paragraph")
+    pos_v_offset = OxmlElement("wp:posOffset")
+    pos_v_offset.text = str(SIGNATURE_IMAGE_TOP_OFFSET_EMU)
+    position_v.append(pos_v_offset)
+    anchor.append(position_v)
+
+    anchor_extent = OxmlElement("wp:extent")
+    anchor_extent.set("cx", str(cx))
+    anchor_extent.set("cy", str(cy))
+    anchor.append(anchor_extent)
+
+    effect_extent = OxmlElement("wp:effectExtent")
+    for key in ("l", "t", "r", "b"):
+        effect_extent.set(key, "0")
+    anchor.append(effect_extent)
+    anchor.append(OxmlElement("wp:wrapNone"))
+
+    doc_pr = OxmlElement("wp:docPr")
+    doc_pr.set("id", str(_next_drawing_id(doc)))
+    doc_pr.set("name", "Tanda Tangan Kepala Dinas")
+    anchor.append(doc_pr)
+    anchor.append(OxmlElement("wp:cNvGraphicFramePr"))
+    anchor.append(deepcopy(graphic))
+    drawing.append(anchor)
+
+
 def _normalize_body_font(doc: Document) -> None:
     """Set body text to Arial 12 without changing template layout.
 
@@ -447,6 +570,7 @@ def generate_docx(
     employees: list[dict[str, Any]],
     legal_bases: list[str],
     purpose_text: str,
+    include_signature: bool = False,
     version: int = 1,
     output_dir: Path = DOCUMENTS_DIR,
     issue_city: str = "Surabaya",
@@ -462,9 +586,10 @@ def generate_docx(
     output_dir.mkdir(parents=True, exist_ok=True)
     version_suffix = "" if version <= 1 else f"_v{version}"
     number_part = str(sequence_number) if sequence_number > 0 else "TANPA_NOMOR"
+    signature_suffix = "_DENGAN_TTD" if include_signature else "_TANPA_TTD"
     filename = (
         f"SPT_{number_part}_{slugify(destination, 35)}_"
-        f"{slugify(activity, 45)}{version_suffix}.docx"
+        f"{slugify(activity, 45)}{version_suffix}{signature_suffix}.docx"
     )
     output_path = output_dir / filename
     shutil.copy2(template_path, output_path)
@@ -475,6 +600,8 @@ def generate_docx(
     _replace_employee_table(doc, employees)
     _replace_purpose(doc, purpose_text)
     _replace_signature_block(doc, issue_date, issue_city)
+    if include_signature:
+        _insert_default_signature_image(doc)
     _normalize_body_font(doc)
     doc.save(output_path)
     return output_path

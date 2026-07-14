@@ -438,7 +438,31 @@ async def show_preview(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     await edit_or_reply(update, preview_text(context), preview_markup())
 
 
-async def generate_letter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def ask_signature_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Ask explicitly whether the standard SPT should contain the manual signature."""
+    if not await require_access(update):
+        return
+    await edit_or_reply(
+        update,
+        "✍️ <b>PILIH TANDA TANGAN</b>\n\n"
+        "Gunakan tanda tangan Kepala Dinas pada Surat Tugas versi standar?\n\n"
+        "Pilihan ini <b>tidak berlaku untuk TNDE</b>.",
+        InlineKeyboardMarkup(
+            [
+                [menu_button("✍️ Pakai Tanda Tangan", "create:generate_signed")],
+                [menu_button("🚫 Tanpa Tanda Tangan", "create:generate_unsigned")],
+                [menu_button("⬅️ Kembali ke Preview", "create:preview")],
+            ]
+        ),
+    )
+
+
+async def generate_letter(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    include_signature: bool,
+) -> None:
     user = await require_access(update)
     if not user:
         return
@@ -465,6 +489,7 @@ async def generate_letter(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             employees=employees,
             legal_bases=legal_bases,
             purpose_text=draft["purpose_text"],
+            include_signature=include_signature,
             version=int(draft.get("version", 1)),
             issue_city=issue_city,
         )
@@ -497,9 +522,11 @@ async def generate_letter(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     number_result = draft["full_number"] if int(draft.get("sequence_number") or 0) > 0 else "Belum ada nomor (dikosongkan)"
+    signature_result = "Dengan tanda tangan Kepala Dinas" if include_signature else "Tanpa tanda tangan"
     await query.message.reply_text(
         "✅ <b>Surat Tugas berhasil dibuat.</b>\n\n"
-        f"Nomor: <code>{esc(number_result)}</code>",
+        f"Nomor: <code>{esc(number_result)}</code>\n"
+        f"Tanda tangan: <b>{esc(signature_result)}</b>",
         parse_mode=ParseMode.HTML,
     )
     with open(docx_path, "rb") as fh:
@@ -1188,7 +1215,11 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         draft["full_number"] = db.format_full_number(sequence, draft["issue_date"].year)
         await show_preview(update, context)
     elif data == "create:generate":
-        await generate_letter(update, context)
+        await ask_signature_choice(update, context)
+    elif data == "create:generate_signed":
+        await generate_letter(update, context, include_signature=True)
+    elif data == "create:generate_unsigned":
+        await generate_letter(update, context, include_signature=False)
     elif data == "create:generate_tnde":
         await generate_tnde_export(update, context)
     elif data == "create:preview":
@@ -1390,7 +1421,7 @@ def main() -> None:
     ensure_runtime_directories()
     db.initialize()
     application = build_application()
-    logger.info("Bot Surat Tugas v2.8.0 mulai berjalan")
+    logger.info("Bot Surat Tugas v3.1.0 mulai berjalan")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

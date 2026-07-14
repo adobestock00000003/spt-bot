@@ -13,6 +13,9 @@ TEMPLATE_PATH = Path(
 TNDE_TEMPLATE_PATH = Path(
     os.getenv("TNDE_TEMPLATE_PATH", str(BASE_DIR / "templates" / "SPT_template_TNDE.docx"))
 ).resolve()
+SIGNATURE_IMAGE_PATH = Path(
+    os.getenv("SIGNATURE_IMAGE_PATH", str(BASE_DIR / "assets" / "TTD_Bu_Kadis_trimmed.png"))
+).resolve()
 EMPLOYEE_SEED_PATH = BASE_DIR / "seeds" / "employees.json"
 APP_TIMEZONE = os.getenv("APP_TIMEZONE", "Asia/Jakarta")
 

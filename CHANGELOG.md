@@ -1,3 +1,30 @@
+## v3.1.0
+
+- Ukuran tanda tangan Kepala Dinas disesuaikan dengan contoh SPT 2026 FIX(1).
+- Lebar tanda tangan diperbesar secara proporsional dari 1,45 inci menjadi 1,70 inci.
+- Posisi tanda tangan dikoreksi ke kiri agar pusat goresan lebih presisi di atas nama Kepala Dinas.
+- Pilihan tanda tangan tetap opsional untuk Surat Tugas standar.
+- Export TNDE tetap tanpa gambar tanda tangan manual.
+- Pagination safety dan ruang kosong template tetap dipertahankan.
+
+## v3.0.0
+
+- Tanda tangan Kepala Dinas pada Surat Tugas standar sekarang opsional dan dipilih secara eksplisit saat generate.
+- Menambahkan pilihan `Pakai Tanda Tangan` atau `Tanpa Tanda Tangan`; export TNDE tetap selalu tanpa tanda tangan manual.
+- Posisi tanda tangan dikoreksi secara optik ke kiri agar lebih presisi terhadap blok nama Kepala Dinas.
+- Ukuran tanda tangan diperkecil dan posisi vertikal dinaikkan agar pas di ruang tanda tangan dan tidak menabrak nama pejabat.
+- Nama file standar membedakan `_DENGAN_TTD` dan `_TANPA_TTD` agar dua mode tidak saling menimpa.
+- Pagination safety dan preservasi blank space template tetap aktif.
+
+## v2.9.0
+
+- Menambahkan tanda tangan Kepala Dinas default dari file `TTD Bu Kadis.png`.
+- Tanda tangan otomatis disisipkan hanya pada Surat Tugas biasa (DOCX/PDF).
+- Export TNDE tetap tanpa gambar tanda tangan dan tetap memakai placeholder `${qrcode}`, `${PEJABAT}`, `${pangkat}`, dan `${nip}`.
+- Gambar tanda tangan dibuat transparan dan hanya padding transparan yang dipangkas; goresan tanda tangan tidak diubah.
+- Tanda tangan ditempatkan sebagai overlay pada ruang kosong resmi di blok Kepala Dinas sehingga space template tidak dihapus atau dipadatkan.
+- Pagination dan pemeriksaan NIP Kepala Dinas tetap aktif untuk kasus pegawai banyak.
+
 # Changelog
 
 ## v2.8.0
