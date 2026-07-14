@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.6.0
+- Menyesuaikan jarak setelah **MEMERINTAHKAN** agar pas seperti template contoh: tidak ada paragraf kosong tambahan yang memperlebar jarak.
+- Menghapus spacer tambahan sebelum daftar pegawai sehingga blok **KEPADA** tetap rapat dan rapi.
+- Format, teks, tab, dan tanda titik dua pada **KEPADA** tetap tidak diubah.
+
+# Changelog
+
 ## v2.5.0
 - Menambahkan satu baris kosong setelah **MEMERINTAHKAN** sebelum blok **KEPADA**.
 - Mempertahankan teks dan format **KEPADA** dari template resmi tanpa menulis ulang isinya.

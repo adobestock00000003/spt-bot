@@ -30,8 +30,8 @@ Bot Telegram untuk membuat, menyimpan, mengunduh, menduplikasi, dan merevisi Sur
 - Statistik sederhana.
 - Penyimpanan persisten kompatibel dengan Railway Volume di `/data`.
 
-### Penyempurnaan layout v2.5
-- Satu baris kosong dipertahankan setelah **MEMERINTAHKAN** sebelum **KEPADA**.
+### Penyempurnaan layout v2.6
+- Jarak setelah **MEMERINTAHKAN** mengikuti template resmi tanpa paragraf kosong tambahan.
 - **KEPADA** memakai format asli template dan tidak ditulis ulang oleh generator.
 - Jabatan Ali Afandi: **Kepala Bidang Pemasaran dan Kelembagaan Parekraf**.
 - Baris penetapan tanggal sejajar dengan blok Kepala Dinas.

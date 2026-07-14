@@ -1266,7 +1266,7 @@ def main() -> None:
     ensure_runtime_directories()
     db.initialize()
     application = build_application()
-    logger.info("Bot Surat Tugas v2.5.0 mulai berjalan")
+    logger.info("Bot Surat Tugas v2.6.0 mulai berjalan")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

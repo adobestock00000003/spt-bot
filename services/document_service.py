@@ -334,13 +334,10 @@ def _replace_employee_table(doc: Document, employees: list[dict[str, Any]]) -> N
             for paragraph in cell.paragraphs:
                 _format_paragraph(paragraph)
 
-    # Keep the official KEPADA table in place. Insert one template-style blank
-    # paragraph after it, then the dynamic employee table. This mirrors the
-    # spacing of the official two-person template and does not alter KEPADA.
-    blank_template = next((p for p in reversed(doc.paragraphs) if not p.text.strip()), None)
-    spacer = deepcopy(blank_template._p) if blank_template is not None else OxmlElement("w:p")
-    kepada_table._tbl.addnext(spacer)
-    spacer.addnext(employee_table._tbl)
+    # Keep the official KEPADA table in place and put the dynamic employee table
+    # immediately after it. Do not add another blank paragraph: the approved
+    # template already defines the correct compact spacing in this area.
+    kepada_table._tbl.addnext(employee_table._tbl)
 
 
 def _replace_number(doc: Document, full_number: str) -> None:
@@ -473,7 +470,6 @@ def generate_docx(
     doc = Document(output_path)
     _replace_number(doc, full_number)
     _replace_legal_bases(doc, legal_bases)
-    _ensure_blank_line_after_memerintahkan(doc)
     _replace_employee_table(doc, employees)
     _replace_purpose(doc, purpose_text)
     _replace_signature_block(doc, issue_date, issue_city)
