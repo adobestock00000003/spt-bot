@@ -357,10 +357,14 @@ class Database:
             last_db = int(row["n"])
         return max(last_setting, last_db) + 1
 
-    def format_full_number(self, sequence_number: int, year: int) -> str:
+    def format_full_number(self, sequence_number: int | str, year: int) -> str:
         prefix = self.get_setting("number_prefix", DEFAULT_NUMBER_PREFIX)
         suffix = self.get_setting("number_suffix", DEFAULT_NUMBER_SUFFIX)
         return f"{prefix} / {sequence_number} / {suffix} / {year}"
+
+    def format_blank_full_number(self, year: int) -> str:
+        # Non-breaking spaces keep a visibly wide blank area in Word/PDF.
+        return self.format_full_number("\u00A0" * 12, year)
 
     # Letters
     def create_letter(

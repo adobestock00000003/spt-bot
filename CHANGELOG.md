@@ -1,3 +1,14 @@
+# Changelog
+
+## v2.4.0
+- Nomor surat dapat dilewati atau dikosongkan sementara.
+- Saat nomor kosong, format dokumen tetap menampilkan ruang nomor yang lebar di antara prefix dan suffix.
+- Nomor kosong disimpan aman sebagai sequence 0 dan tidak mengubah nomor terakhir yang sudah digunakan.
+- Menu/input Event dihapus dari alur pembuatan dan edit surat.
+- Narasi UNTUK otomatis sekarang dibentuk langsung dari tujuan, kegiatan, dan tanggal.
+- Nama file untuk surat tanpa nomor menggunakan penanda TANPA_NOMOR.
+- Spasi dan ruang kosong bawaan template tetap dipertahankan.
+
 # v2.2.0
 
 - Hotfix Railway: `main.py` tidak lagi mengimpor `ensure_directories` dari `config.py`.
@@ -39,3 +50,9 @@
 - Admin/operator.
 - Pengelolaan pegawai, dasar hukum, dan nomor surat.
 - SQLite persisten untuk Railway Volume.
+
+## v2.3.0 - Template Space Preserved
+- Spasi kosong, paragraf kosong, dan jarak paragraf bawaan template tidak lagi dinormalisasi/dihapus.
+- Font isi tetap Arial 12 tanpa mengubah layout, tab, indent, line spacing, atau blank space template.
+- Blok tanda tangan hanya mengganti kota dan tanggal; layout, ruang tanda tangan, dan objek bawaan template dipertahankan.
+- File contoh di folder `samples` dipertahankan sesuai contoh pengguna, termasuk ruang kosong yang memang disengaja.

@@ -2,7 +2,7 @@
 
 Bot Telegram untuk membuat, menyimpan, mengunduh, menduplikasi, dan merevisi Surat Tugas berdasarkan template resmi Word yang diberikan.
 
-## Fitur versi 2.0
+## Fitur versi 2.4
 
 - Pembuatan Surat Tugas melalui tombol Telegram.
 - Multi-pilih pegawai dari 24 data pegawai pada Excel `DATA PEGAWAI BID PEMASARAN.xlsx`.
@@ -10,7 +10,9 @@ Bot Telegram untuk membuat, menyimpan, mengunduh, menduplikasi, dan merevisi Sur
 - Perhitungan durasi otomatis, termasuk bentuk terbilang: `4 (empat) hari`.
 - Penyusunan otomatis narasi bagian `UNTUK`.
 - Preview sebelum dokumen dibuat.
-- Edit tujuan, kegiatan, event, tanggal, nomor, narasi, dan Dasar nomor 4 sebelum generate.
+- Edit tujuan, kegiatan, tanggal, nomor, narasi, dan Dasar nomor 4 sebelum generate.
+- Nomor surat dapat dilewati/dikosongkan sementara; dokumen mempertahankan ruang nomor yang lebar.
+- Input Event/Acara dihapus; nama event dapat langsung ditulis sebagai bagian dari Kegiatan bila diperlukan.
 - Nomor surat semi otomatis dengan format default `000.1.2.3 / [NOMOR] / 118.4 / [TAHUN]`.
 - Output DOCX menggunakan template `SPT 2026 FIX` dan output PDF melalui LibreOffice.
 - Dasar hukum utama memakai nomor 1-3 dari template 2026; Dasar nomor 4 bersifat opsional dan dapat digunakan, diedit, atau dihilangkan per surat.
@@ -162,3 +164,6 @@ Tes akan membuat contoh 2 pegawai dan stress test 12 pegawai, lalu mencoba mengo
 ## Catatan penting nomor surat
 
 Nomor surat menggunakan mode semi otomatis. Bot memberi saran nomor berikutnya, tetapi operator tetap bisa mengganti nomor sebelum dokumen dibuat. Ini mencegah benturan jika penomoran juga digunakan oleh proses administrasi lain di luar bot.
+
+### Aturan preservasi template (v2.4)
+Bot tidak menghapus atau merapatkan paragraf kosong/space kosong yang sudah ada di template resmi. Normalisasi font ke Arial 12 hanya mengubah font, bukan jarak paragraf, line spacing, tab, indent, atau ruang tanda tangan. Jika template resmi memiliki ruang kosong yang disengaja, ruang tersebut dipertahankan.

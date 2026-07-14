@@ -90,14 +90,11 @@ def number_to_words_id(number: int) -> str:
 def build_purpose_text(
     destination: str,
     activity: str,
-    event_name: str | None,
     start_date: date,
     end_date: date,
 ) -> str:
     duration = (end_date - start_date).days + 1
     text = f"Perjalanan Dinas ke {destination} dalam rangka {activity.strip()}"
-    if event_name and event_name.strip():
-        text += f" pada {event_name.strip()}"
     text += (
         f" selama {duration} ({number_to_words_id(duration)}) hari "
         f"pada tanggal {format_date_range_id(start_date, end_date)}."

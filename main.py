@@ -287,15 +287,6 @@ async def ask_activity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
-async def ask_event(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    context.user_data["state"] = "create_event"
-    await update.effective_message.reply_text(
-        "🎪 <b>NAMA EVENT / ACARA</b>\n\nKetik nama event. Bila tidak ada, tekan Lewati.",
-        parse_mode=ParseMode.HTML,
-        reply_markup=InlineKeyboardMarkup([[menu_button("⏭ Lewati", "create:skip_event")]]),
-    )
-
-
 async def ask_start_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data["state"] = "create_start_date"
     await update.effective_message.reply_text(
@@ -368,9 +359,13 @@ async def ask_number(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         update,
         "🔢 <b>NOMOR SURAT</b>\n\n"
         f"Saran nomor berikutnya:\n<code>{full}</code>\n\n"
-        "Tekan Gunakan atau ketik nomor urut lain, misalnya <code>123</code>.",
+        "Tekan Gunakan, ketik nomor urut lain, atau tekan Lewati jika nomor belum tersedia. "
+        "Jika dilewati, bagian nomor pada dokumen akan dibiarkan kosong dengan ruang yang cukup lebar.",
         InlineKeyboardMarkup(
-            [[menu_button(f"✅ Gunakan {suggested}", "create:number_suggested")]]
+            [
+                [menu_button(f"✅ Gunakan {suggested}", "create:number_suggested")],
+                [menu_button("⏭ Lewati / Kosongkan Nomor", "create:number_blank")],
+            ]
         ),
     )
 
@@ -383,7 +378,6 @@ def refresh_auto_purpose(draft: dict[str, Any]) -> None:
         draft["purpose_text"] = build_purpose_text(
             draft["destination"],
             draft["activity"],
-            draft.get("event_name") or None,
             draft["start_date"],
             draft["end_date"],
         )
@@ -395,9 +389,10 @@ def preview_text(context: ContextTypes.DEFAULT_TYPE) -> str:
     employees = [e for e in employees if e]
     employee_lines = "\n".join(f"{i}. {esc(e['name'])}" for i, e in enumerate(employees, start=1))
     duration = (draft["end_date"] - draft["start_date"]).days + 1
+    number_display = draft["full_number"] if int(draft.get("sequence_number") or 0) > 0 else "Belum ada nomor (dikosongkan)"
     return (
         "🔍 <b>PREVIEW SURAT TUGAS</b>\n\n"
-        f"<b>Nomor</b>\n<code>{esc(draft['full_number'])}</code>\n\n"
+        f"<b>Nomor</b>\n<code>{esc(number_display)}</code>\n\n"
         f"<b>Pegawai ({len(employees)})</b>\n{employee_lines}\n\n"
         f"<b>Tujuan</b>\n{esc(draft['destination'])}\n\n"
         f"<b>Tanggal</b>\n{format_date_range_id(draft['start_date'], draft['end_date'])}\n"
@@ -416,10 +411,7 @@ def preview_markup() -> InlineKeyboardMarkup:
                 menu_button("👥 Edit Pegawai", "create:edit_employees"),
                 menu_button("📍 Edit Tujuan", "create:edit_destination"),
             ],
-            [
-                menu_button("📝 Edit Kegiatan", "create:edit_activity"),
-                menu_button("🎪 Edit Event", "create:edit_event"),
-            ],
+            [menu_button("📝 Edit Kegiatan", "create:edit_activity")],
             [
                 menu_button("📅 Edit Tanggal", "create:edit_dates"),
                 menu_button("🖊 Edit Penetapan", "create:edit_issue"),
@@ -478,7 +470,7 @@ async def generate_letter(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             full_number=draft["full_number"],
             destination=draft["destination"],
             activity=draft["activity"],
-            event_name=draft.get("event_name", ""),
+            event_name="",
             purpose_text=draft["purpose_text"],
             start_date=draft["start_date"].isoformat(),
             end_date=draft["end_date"].isoformat(),
@@ -498,9 +490,10 @@ async def generate_letter(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.message.reply_text(f"❌ Gagal membuat dokumen: {exc}")
         return
 
+    number_result = draft["full_number"] if int(draft.get("sequence_number") or 0) > 0 else "Belum ada nomor (dikosongkan)"
     await query.message.reply_text(
         "✅ <b>Surat Tugas berhasil dibuat.</b>\n\n"
-        f"Nomor: <code>{esc(draft['full_number'])}</code>",
+        f"Nomor: <code>{esc(number_result)}</code>",
         parse_mode=ParseMode.HTML,
     )
     with open(docx_path, "rb") as fh:
@@ -533,7 +526,8 @@ async def show_history(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     rows = db.list_letters(limit=12)
     keyboard: list[list[InlineKeyboardButton]] = []
     for row in rows:
-        label = f"📄 {row['sequence_number'] if 'sequence_number' in row.keys() else row['full_number'].split('/')[1].strip()} • {row['destination'][:28]}"
+        sequence_label = row["sequence_number"] if int(row["sequence_number"] or 0) > 0 else "Tanpa nomor"
+        label = f"📄 {sequence_label} • {row['destination'][:28]}"
         keyboard.append([menu_button(label, f"history:view:{row['id']}")])
     keyboard.append([menu_button("🏠 Menu Utama", "menu:home")])
     text = "📋 <b>RIWAYAT SURAT TUGAS</b>\n\n"
@@ -551,9 +545,10 @@ async def show_letter_detail(update: Update, context: ContextTypes.DEFAULT_TYPE,
     employees = "\n".join(
         f"{i}. {esc(emp.get('name',''))}" for i, emp in enumerate(item["employees"], start=1)
     )
+    detail_number = item["full_number"] if int(item.get("sequence_number") or 0) > 0 else "Belum ada nomor (dikosongkan)"
     text = (
         "📄 <b>DETAIL SURAT TUGAS</b>\n\n"
-        f"<b>Nomor</b>\n<code>{esc(item['full_number'])}</code>\n\n"
+        f"<b>Nomor</b>\n<code>{esc(detail_number)}</code>\n\n"
         f"<b>Tujuan</b>\n{esc(item['destination'])}\n\n"
         f"<b>Pegawai</b>\n{employees}\n\n"
         f"<b>Tanggal</b>\n{item['start_date']} s.d. {item['end_date']}\n\n"
@@ -604,7 +599,10 @@ def load_letter_to_draft(context: ContextTypes.DEFAULT_TYPE, item: dict[str, Any
     optional_legal_base_4 = saved_legal_bases[3] if len(saved_legal_bases) > 3 else None
     if revision:
         sequence = int(item["sequence_number"])
-        full_number = item["full_number"]
+        full_number = (
+            item["full_number"] if sequence > 0
+            else db.format_blank_full_number(date.today().year)
+        )
         version = int(item["version"]) + 1
         parent_letter_id = int(item["id"])
         primary_legal_bases = saved_legal_bases[:3] or None
@@ -618,14 +616,13 @@ def load_letter_to_draft(context: ContextTypes.DEFAULT_TYPE, item: dict[str, Any
         "employee_ids": employee_ids,
         "destination": item["destination"],
         "activity": item["activity"],
-        "event_name": item["event_name"],
         "start_date": start,
         "end_date": end,
         "issue_date": date.today(),
         "sequence_number": sequence,
         "full_number": full_number,
         "purpose_text": build_purpose_text(
-            item["destination"], item["activity"], item["event_name"] or None, start, end
+            item["destination"], item["activity"], start, end
         ),
         "purpose_manual": False,
         "version": version,
@@ -823,15 +820,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             if context.user_data.pop("edit_return", False):
                 await show_preview(update, context)
             else:
-                await ask_event(update, context)
-            return
-
-        if state == "create_event":
-            draft["event_name"] = text
-            refresh_auto_purpose(draft)
-            if context.user_data.pop("edit_return", False):
-                await show_preview(update, context)
-            else:
                 await ask_start_date(update, context)
             return
 
@@ -856,7 +844,11 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if state == "create_issue_date":
             draft["issue_date"] = parse_date_id(text)
             if context.user_data.pop("edit_return", False):
-                draft["full_number"] = db.format_full_number(draft["sequence_number"], draft["issue_date"].year)
+                sequence = int(draft.get("sequence_number") or 0)
+                draft["full_number"] = (
+                    db.format_full_number(sequence, draft["issue_date"].year)
+                    if sequence > 0 else db.format_blank_full_number(draft["issue_date"].year)
+                )
                 await show_preview(update, context)
             else:
                 await ask_legal_base_4(update, context)
@@ -1037,24 +1029,15 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await edit_or_reply(update, text, keyboard)
     elif data == "create:emp_done":
         await create_employee_done(update, context)
-    elif data == "create:skip_event":
-        draft = get_draft(context)
-        draft["event_name"] = ""
-        refresh_auto_purpose(draft)
-        if context.user_data.pop("edit_return", False):
-            await show_preview(update, context)
-        else:
-            await query.answer()
-            await query.message.reply_text(
-                "📅 <b>TANGGAL BERANGKAT</b>\n\nGunakan format <code>DD-MM-YYYY</code>.",
-                parse_mode=ParseMode.HTML,
-            )
-            context.user_data["state"] = "create_start_date"
     elif data == "create:issue_today":
         draft = get_draft(context)
         draft["issue_date"] = date.today()
         if context.user_data.pop("edit_return", False):
-            draft["full_number"] = db.format_full_number(draft["sequence_number"], draft["issue_date"].year)
+            sequence = int(draft.get("sequence_number") or 0)
+            draft["full_number"] = (
+                db.format_full_number(sequence, draft["issue_date"].year)
+                if sequence > 0 else db.format_blank_full_number(draft["issue_date"].year)
+            )
             await show_preview(update, context)
         else:
             await ask_legal_base_4(update, context)
@@ -1075,6 +1058,11 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         draft = get_draft(context)
         draft["legal_base_4"] = None
         await finish_legal_base_4(update, context)
+    elif data == "create:number_blank":
+        draft = get_draft(context)
+        draft["sequence_number"] = 0
+        draft["full_number"] = db.format_blank_full_number(draft["issue_date"].year)
+        await show_preview(update, context)
     elif data == "create:number_suggested":
         draft = get_draft(context)
         sequence = int(draft.get("suggested_sequence") or db.suggest_next_sequence())
@@ -1099,14 +1087,6 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         context.user_data["state"] = "create_activity"
         context.user_data["edit_return"] = True
         await edit_or_reply(update, "📝 Ketik kegiatan baru.")
-    elif data == "create:edit_event":
-        context.user_data["state"] = "create_event"
-        context.user_data["edit_return"] = True
-        await edit_or_reply(
-            update,
-            "🎪 Ketik nama event baru atau tekan Lewati untuk mengosongkan.",
-            InlineKeyboardMarkup([[menu_button("⏭ Lewati", "create:skip_event")]]),
-        )
     elif data == "create:edit_dates":
         context.user_data["state"] = "create_start_date"
         context.user_data["edit_dates"] = True
@@ -1126,7 +1106,11 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await ask_legal_base_4(update, context)
     elif data == "create:edit_number":
         context.user_data["state"] = "create_number"
-        await edit_or_reply(update, "🔢 Ketik nomor urut surat yang baru.")
+        await edit_or_reply(
+            update,
+            "🔢 Ketik nomor urut surat yang baru atau kosongkan jika nomor belum tersedia.",
+            InlineKeyboardMarkup([[menu_button("⏭ Kosongkan Nomor", "create:number_blank")]]),
+        )
     elif data == "create:edit_purpose":
         context.user_data["state"] = "create_purpose"
         await edit_or_reply(update, "✍️ Ketik narasi lengkap untuk bagian UNTUK.")
@@ -1282,7 +1266,7 @@ def main() -> None:
     ensure_runtime_directories()
     db.initialize()
     application = build_application()
-    logger.info("Bot Surat Tugas v2.2.0 mulai berjalan")
+    logger.info("Bot Surat Tugas v2.4.0 mulai berjalan")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

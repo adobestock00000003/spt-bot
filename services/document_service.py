@@ -67,14 +67,24 @@ def _format_paragraph(
     alignment: WD_ALIGN_PARAGRAPH | None = None,
     bold: bool | None = None,
     keep_with_next: bool | None = None,
-    space_before: float = 0,
-    space_after: float = 0,
+    space_before: float | None = None,
+    space_after: float | None = None,
+    line_spacing: float | None = None,
 ) -> None:
+    """Format only the properties explicitly requested.
+
+    IMPORTANT: blank paragraphs and paragraph spacing from the official template are
+    layout elements. Do not normalize them to zero. This keeps intentional empty
+    space exactly as it exists in the template.
+    """
     if alignment is not None:
         paragraph.alignment = alignment
-    paragraph.paragraph_format.space_before = Pt(space_before)
-    paragraph.paragraph_format.space_after = Pt(space_after)
-    paragraph.paragraph_format.line_spacing = 1.0
+    if space_before is not None:
+        paragraph.paragraph_format.space_before = Pt(space_before)
+    if space_after is not None:
+        paragraph.paragraph_format.space_after = Pt(space_after)
+    if line_spacing is not None:
+        paragraph.paragraph_format.line_spacing = line_spacing
     if keep_with_next is not None:
         paragraph.paragraph_format.keep_with_next = keep_with_next
     for run in paragraph.runs:
@@ -84,6 +94,33 @@ def _format_paragraph(
 def _set_paragraph_text(paragraph: Paragraph, text: str, *, bold: bool | None = None) -> None:
     # paragraph.text keeps paragraph-level tabs/indents from the template.
     paragraph.text = text
+    for run in paragraph.runs:
+        _set_run_font(run, bold=bold)
+
+
+def _set_paragraph_text_preserve_objects(
+    paragraph: Paragraph, text: str, *, bold: bool | None = None
+) -> None:
+    """Replace only direct paragraph text while preserving drawings/text boxes.
+
+    Some official-template paragraphs also anchor floating signature text boxes.
+    Assigning ``paragraph.text`` would delete those objects. This helper edits only
+    direct ``w:t`` nodes in normal runs and leaves drawing/XML objects untouched.
+    """
+    direct_text_nodes = []
+    for run_el in paragraph._p.findall(qn("w:r")):
+        direct_text_nodes.extend(run_el.findall(qn("w:t")))
+
+    if direct_text_nodes:
+        direct_text_nodes[0].text = text
+        if text.startswith(" ") or text.endswith(" ") or "  " in text:
+            direct_text_nodes[0].set(qn("xml:space"), "preserve")
+        for node in direct_text_nodes[1:]:
+            node.text = ""
+    else:
+        run = paragraph.add_run(text)
+        _set_run_font(run, bold=bold)
+
     for run in paragraph.runs:
         _set_run_font(run, bold=bold)
 
@@ -139,8 +176,10 @@ def _add_cell_line(
     keep_with_next: bool = False,
     space_after: float = 0,
 ) -> Paragraph:
-    # Reuse the single empty paragraph first, then append as needed.
-    if len(cell.paragraphs) == 1 and not cell.paragraphs[0].text and not cell.paragraphs[0].runs:
+    # Reuse the single empty paragraph first. ``cell.text = ""`` may leave an
+    # empty run, so text emptiness is the reliable check. This keeps generated
+    # employee rows compact without touching blank space elsewhere in the template.
+    if len(cell.paragraphs) == 1 and not cell.paragraphs[0].text:
         p = cell.paragraphs[0]
     else:
         p = cell.add_paragraph()
@@ -151,6 +190,7 @@ def _add_cell_line(
         keep_with_next=keep_with_next,
         space_before=0,
         space_after=space_after,
+        line_spacing=1.0,
     )
     return p
 
@@ -256,12 +296,19 @@ def _replace_purpose(doc: Document, purpose_text: str) -> None:
     for paragraph in doc.paragraphs:
         if paragraph.text.strip().startswith("UNTUK"):
             _set_paragraph_text(paragraph, f"UNTUK\t:\t{purpose_text.strip()}")
-            _format_paragraph(paragraph, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY, space_before=4, space_after=8)
+            # Preserve the template's original paragraph spacing/blank space.
+            _format_paragraph(paragraph, alignment=WD_ALIGN_PARAGRAPH.JUSTIFY)
             return
     raise DocumentGenerationError("Bagian UNTUK tidak ditemukan pada template.")
 
 
 def _replace_signature_block(doc: Document, issue_date: date, issue_city: str) -> None:
+    """Update only city/date text and preserve the signature layout verbatim.
+
+    The official template can contain intentional blank paragraphs, spacing, and
+    floating objects/text boxes for the signatory. Those must not be cleared or
+    rebuilt because doing so changes the template's empty space and page balance.
+    """
     if len(doc.tables) < 2:
         raise DocumentGenerationError("Blok penetapan surat tidak ditemukan pada template.")
 
@@ -269,60 +316,62 @@ def _replace_signature_block(doc: Document, issue_date: date, issue_city: str) -
     if not table.rows or len(table.columns) < 2:
         raise DocumentGenerationError("Format blok penetapan surat tidak sesuai.")
 
-    _remove_table_borders(table)
-    table.autofit = False
-    row = table.rows[0]
-    _set_row_cant_split(row)
-    left, right = row.cells[0], row.cells[1]
-    left.width = Inches(3.55)
-    right.width = Inches(3.15)
-    _clear_cell(left)
-    _clear_cell(right)
-    _set_cell_margins(left, top=0, start=0, bottom=0, end=0)
-    _set_cell_margins(right, top=0, start=0, bottom=0, end=0)
+    right = table.rows[0].cells[1]
+    found_city = False
+    found_date = False
+    for paragraph in right.paragraphs:
+        text = paragraph.text.strip()
+        if text.startswith("Ditetapkan di"):
+            _set_paragraph_text_preserve_objects(paragraph, f"Ditetapkan di {issue_city}")
+            found_city = True
+        elif text.startswith("pada tanggal"):
+            _set_paragraph_text_preserve_objects(paragraph, f"pada tanggal {format_date_id(issue_date)}")
+            found_date = True
 
-    lines = [
-        (f"Ditetapkan di {issue_city}", False, False, True, 0),
-        (f"pada tanggal {format_date_id(issue_date)}", False, False, True, 8),
-        ("KEPALA DINAS", False, False, True, 0),
-        ("KEBUDAYAAN DAN PARIWISATA", False, False, True, 0),
-        ("PROVINSI JAWA TIMUR", False, False, True, 44),
-        ("Evy Afianasari, S.T., M.M.A.", True, True, True, 0),
-        ("Pembina Utama Muda (IV/c)", False, False, False, 0),
-    ]
-    for text, bold, underline, keep, after in lines:
-        _add_cell_line(
-            right,
-            text,
-            bold=bold,
-            underline=underline,
-            keep_with_next=keep,
-            space_after=after,
-        )
+    # Fallback only when a custom template is missing one of the two placeholders.
+    # Existing empty paragraphs are reused first so no intentional blank space is deleted.
+    if not found_city:
+        target = next((p for p in right.paragraphs if not p.text.strip()), None)
+        target = target or right.add_paragraph()
+        _set_paragraph_text(target, f"Ditetapkan di {issue_city}")
+    if not found_date:
+        target = next((p for p in right.paragraphs if not p.text.strip()), None)
+        target = target or right.add_paragraph()
+        _set_paragraph_text(target, f"pada tanggal {format_date_id(issue_date)}")
+
+    # Font is normalized without touching paragraph spacing, empty paragraphs,
+    # line spacing, tabs, indents, or floating signature objects.
+    for paragraph in right.paragraphs:
+        for run in paragraph.runs:
+            _set_run_font(run)
 
 
 def _normalize_body_font(doc: Document) -> None:
-    # Keep the official letterhead/logo formatting from the template intact.
-    # Normalize the actual letter body (from SURAT TUGAS onward) to Arial 12.
+    """Set body text to Arial 12 without changing template layout.
+
+    Do not alter paragraph spacing, line spacing, blank paragraphs, tabs, indents,
+    keep settings, or other geometry. Empty space in the template is intentional.
+    """
     body_started = False
     for p in doc.paragraphs:
         if p.text.strip() == "SURAT TUGAS":
             body_started = True
-            _format_paragraph(p, alignment=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
-            continue
         if body_started:
-            _format_paragraph(p)
+            for run in p.runs:
+                _set_run_font(run, bold=True if p.text.strip() == "SURAT TUGAS" else None)
 
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for p in cell.paragraphs:
-                    _format_paragraph(p)
+                    for run in p.runs:
+                        _set_run_font(run)
                 for nested in cell.tables:
                     for nrow in nested.rows:
                         for ncell in nrow.cells:
                             for p in ncell.paragraphs:
-                                _format_paragraph(p)
+                                for run in p.runs:
+                                    _set_run_font(run)
 
 
 def generate_docx(
@@ -349,8 +398,9 @@ def generate_docx(
 
     output_dir.mkdir(parents=True, exist_ok=True)
     version_suffix = "" if version <= 1 else f"_v{version}"
+    number_part = str(sequence_number) if sequence_number > 0 else "TANPA_NOMOR"
     filename = (
-        f"SPT_{sequence_number}_{slugify(destination, 35)}_"
+        f"SPT_{number_part}_{slugify(destination, 35)}_"
         f"{slugify(activity, 45)}{version_suffix}.docx"
     )
     output_path = output_dir / filename

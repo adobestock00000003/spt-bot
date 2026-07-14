@@ -22,14 +22,13 @@ def main() -> None:
         purpose = build_purpose_text(
             "Kabupaten Ponorogo",
             "pendampingan dan pembuatan konten video KYAI LODRA",
-            "Festival Nasional Reyog Ponorogo XXXI 2026",
             start,
             end,
         )
 
         docx = generate_docx(
-            full_number="000.1.2.3 / 123 / 118.4 / 2026",
-            sequence_number=123,
+            full_number=database.format_blank_full_number(2026),
+            sequence_number=0,
             destination="Kabupaten Ponorogo",
             activity="pendampingan dan pembuatan konten video KYAI LODRA",
             issue_date=date(2026, 6, 10),
