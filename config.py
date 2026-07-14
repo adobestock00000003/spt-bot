@@ -43,3 +43,9 @@ DEFAULT_LEGAL_BASES = [
 ]
 
 DEFAULT_OPTIONAL_LEGAL_BASE_4 = "Undangan dari Pemerintah Kabupaten Ponorogo;"
+
+
+def ensure_directories() -> None:
+    """Create persistent data folders before the bot/database starts."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)

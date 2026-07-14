@@ -1,0 +1,2 @@
+2.2.0
+Hotfix: main.py no longer imports ensure_directories from config.py.

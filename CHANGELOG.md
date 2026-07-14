@@ -1,3 +1,16 @@
+# v2.2.0
+
+- Hotfix Railway: `main.py` tidak lagi mengimpor `ensure_directories` dari `config.py`.
+- Direktori `/data` dan `/data/documents` dibuat langsung oleh `main.py`.
+- Log startup menampilkan `Bot Surat Tugas v2.2.0 mulai berjalan`.
+
+## v2.1 - Railway startup hotfix
+
+- Memperbaiki `ImportError: cannot import name 'ensure_directories' from 'config'`.
+- Menambahkan kembali `ensure_directories()` untuk membuat `DATA_DIR` dan folder dokumen sebelum database/bot dijalankan.
+- Tidak mengubah struktur database, sehingga Railway Volume `/data` versi sebelumnya tetap dapat digunakan.
+- Smoke test generator DOCX/PDF untuk 2 dan 12 pegawai berhasil.
+
 # Changelog
 
 ## v2.0.0

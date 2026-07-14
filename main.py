@@ -20,7 +20,7 @@ from telegram.ext import (
     filters,
 )
 
-from config import BOT_TOKEN, DEFAULT_OPTIONAL_LEGAL_BASE_4, ensure_directories
+from config import BOT_TOKEN, DATA_DIR, DOCUMENTS_DIR, DEFAULT_OPTIONAL_LEGAL_BASE_4
 from database import Database
 from services.document_service import convert_docx_to_pdf, generate_docx
 from utils import (
@@ -1272,11 +1272,17 @@ def build_application() -> Application:
     return application
 
 
+def ensure_runtime_directories() -> None:
+    """Create persistent folders without depending on a helper in config.py."""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
+
+
 def main() -> None:
-    ensure_directories()
+    ensure_runtime_directories()
     db.initialize()
     application = build_application()
-    logger.info("Bot Surat Tugas mulai berjalan")
+    logger.info("Bot Surat Tugas v2.2.0 mulai berjalan")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
