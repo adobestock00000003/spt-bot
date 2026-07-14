@@ -30,6 +30,11 @@ Bot Telegram untuk membuat, menyimpan, mengunduh, menduplikasi, dan merevisi Sur
 - Statistik sederhana.
 - Penyimpanan persisten kompatibel dengan Railway Volume di `/data`.
 
+### Safety pagination v2.7
+
+- Kasus 4-5 pegawai kini dijaga agar NIP Kepala Dinas tidak terpotong di batas bawah halaman.
+- Jika blok tanda tangan tidak muat utuh, bagian UNTUK dan tanda tangan otomatis dipindahkan ke halaman berikutnya tanpa menghapus space bawaan template.
+
 ### Penyempurnaan layout v2.6
 - Jarak setelah **MEMERINTAHKAN** mengikuti template resmi tanpa paragraf kosong tambahan.
 - **KEPADA** memakai format asli template dan tidak ditulis ulang oleh generator.

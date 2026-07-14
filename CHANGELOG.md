@@ -1,11 +1,16 @@
 # Changelog
 
+## v2.7.0
+
+- Memperbaiki kasus 4-5 pegawai ketika baris **NIP Kepala Dinas** dapat terpotong di bawah halaman.
+- Jarak antardata pegawai dibuat adaptif: tetap lega untuk 1-3 pegawai dan sedikit lebih kompak mulai 4 pegawai, tanpa menghapus space kosong bawaan template.
+- Menambahkan pemeriksaan geometri hasil PDF. Jika blok tanda tangan tidak muat utuh, bot otomatis memindahkan bagian **UNTUK + tanda tangan** ke halaman berikutnya.
+- Template, blank space resmi, posisi KEPADA, dan ruang tanda tangan tetap dipertahankan.
+
 ## v2.6.0
 - Menyesuaikan jarak setelah **MEMERINTAHKAN** agar pas seperti template contoh: tidak ada paragraf kosong tambahan yang memperlebar jarak.
 - Menghapus spacer tambahan sebelum daftar pegawai sehingga blok **KEPADA** tetap rapat dan rapi.
 - Format, teks, tab, dan tanda titik dua pada **KEPADA** tetap tidak diubah.
-
-# Changelog
 
 ## v2.5.0
 - Menambahkan satu baris kosong setelah **MEMERINTAHKAN** sebelum blok **KEPADA**.

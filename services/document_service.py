@@ -305,6 +305,8 @@ def _replace_employee_table(doc: Document, employees: list[dict[str, Any]]) -> N
     for column, width in zip(employee_table.columns, widths):
         column.width = width
 
+    employee_gap_after = 8 if len(employees) <= 3 else 2
+
     for index, employee in enumerate(employees, start=1):
         row = employee_table.add_row()
         _set_row_cant_split(row)
@@ -325,7 +327,7 @@ def _replace_employee_table(doc: Document, employees: list[dict[str, Any]]) -> N
 
         for line_idx, (label, value) in enumerate(values):
             keep = line_idx < len(values) - 1
-            spacing = 8 if line_idx == len(values) - 1 else 0
+            spacing = employee_gap_after if line_idx == len(values) - 1 else 0
             _add_cell_line(row.cells[1], label, keep_with_next=keep, space_after=spacing)
             _add_cell_line(row.cells[2], ":", keep_with_next=keep, space_after=spacing)
             _add_cell_line(row.cells[3], value, keep_with_next=keep, space_after=spacing)
@@ -478,17 +480,60 @@ def generate_docx(
     return output_path
 
 
-def convert_docx_to_pdf(docx_path: Path) -> Path | None:
-    """Convert DOCX to PDF using LibreOffice. Returns None when unavailable."""
-    docx_path = Path(docx_path)
-    if not docx_path.exists():
-        raise FileNotFoundError(docx_path)
 
-    executable = shutil.which("libreoffice") or shutil.which("soffice")
-    if not executable:
-        return None
+def _force_purpose_to_next_page(docx_path: Path) -> bool:
+    """Move the UNTUK block to a fresh page without altering template spacing.
 
-    output_dir = docx_path.parent
+    This is a safety fallback for edge cases where the complete Kepala Dinas
+    signature block would otherwise fall below the printable page area.
+    """
+    doc = Document(docx_path)
+    for paragraph in doc.paragraphs:
+        if paragraph.text.strip().startswith("UNTUK"):
+            if paragraph.paragraph_format.page_break_before:
+                return False
+            paragraph.paragraph_format.page_break_before = True
+            doc.save(docx_path)
+            return True
+    raise DocumentGenerationError("Bagian UNTUK tidak ditemukan saat memperbaiki pagination.")
+
+
+def _signature_block_is_safe(pdf_path: Path, *, bottom_safe_margin_pt: float = 8.0) -> bool:
+    """Return True when the Kepala Dinas NIP is visible inside the page bounds.
+
+    The official template uses a floating text box for the signatory block. In a
+    narrow edge case, Word/LibreOffice can keep that text box on the same page
+    while its last line falls outside the crop area. We inspect the rendered PDF
+    geometry and only trigger a page break when that actually happens.
+    """
+    try:
+        import fitz  # PyMuPDF; kept local so DOCX generation still works independently.
+    except Exception:
+        # Static pagination rules already reduce the common risk. If PyMuPDF is
+        # unavailable, do not fail document generation solely because QA cannot run.
+        return True
+
+    target = "197601142000032004"
+    try:
+        pdf = fitz.open(pdf_path)
+        try:
+            for page in pdf:
+                rects = page.search_for(target)
+                if not rects:
+                    continue
+                lowest = max(rects, key=lambda rect: rect.y1)
+                return lowest.y1 <= (page.rect.height - bottom_safe_margin_pt)
+        finally:
+            pdf.close()
+    except Exception:
+        return True
+
+    # Missing from visible PDF text is treated as unsafe; this is exactly the
+    # failure mode where the NIP is clipped below the page.
+    return False
+
+
+def _convert_once(docx_path: Path, output_dir: Path, executable: str) -> Path | None:
     with tempfile.TemporaryDirectory(prefix="lo-profile-") as profile_dir:
         env = os.environ.copy()
         env["HOME"] = profile_dir
@@ -512,3 +557,35 @@ def convert_docx_to_pdf(docx_path: Path) -> Path | None:
     if result.returncode != 0 or not pdf_path.exists() or pdf_path.stat().st_size == 0:
         return None
     return pdf_path
+
+def convert_docx_to_pdf(docx_path: Path) -> Path | None:
+    """Convert DOCX to PDF and automatically prevent clipped signature NIP."""
+    docx_path = Path(docx_path)
+    if not docx_path.exists():
+        raise FileNotFoundError(docx_path)
+
+    executable = shutil.which("libreoffice") or shutil.which("soffice")
+    if not executable:
+        return None
+
+    output_dir = docx_path.parent
+    pdf_path = _convert_once(docx_path, output_dir, executable)
+    if pdf_path is None:
+        return None
+
+    # Edge-case guard: if the floating Kepala Dinas block reaches past the page
+    # boundary, keep every official template space intact and move the whole
+    # UNTUK + signature section to the next page instead of deleting blank space.
+    if not _signature_block_is_safe(pdf_path):
+        changed = _force_purpose_to_next_page(docx_path)
+        if changed:
+            pdf_path = _convert_once(docx_path, output_dir, executable)
+            if pdf_path is None:
+                return None
+        if not _signature_block_is_safe(pdf_path):
+            raise DocumentGenerationError(
+                "Blok tanda tangan masih berada di luar area halaman setelah pagination otomatis."
+            )
+
+    return pdf_path
+
