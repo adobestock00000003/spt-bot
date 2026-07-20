@@ -5,6 +5,7 @@ import html
 import logging
 import os
 import uuid
+from calendar import monthrange
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,8 @@ from utils import (
     clean_rank,
     format_date_id,
     format_date_range_id,
+    format_issue_date_id,
+    format_month_year_id,
     parse_date_id,
 )
 
@@ -308,13 +311,72 @@ async def ask_end_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
+def issue_date_from_day(start_date: date, day: int) -> date:
+    if day < 1:
+        raise ValueError("Tanggal penetapan harus antara 1 dan 31.")
+    try:
+        return date(start_date.year, start_date.month, day)
+    except ValueError as exc:
+        last_day = monthrange(start_date.year, start_date.month)[1]
+        raise ValueError(
+            f"Tanggal penetapan tidak valid. Bulan {format_month_year_id(start_date)} hanya sampai tanggal {last_day}."
+        ) from exc
+
+
+def parse_issue_day_for_start(text: str, start_date: date) -> date:
+    value = text.strip()
+    if value.isdigit():
+        day = int(value)
+    else:
+        # Tetap menerima format tanggal lengkap, tetapi bulan/tahun selalu
+        # mengikuti jadwal berangkat sesuai aturan Surat Tugas.
+        day = parse_date_id(value).day
+    return issue_date_from_day(start_date, day)
+
+
+def sync_issue_date_to_start(draft: dict[str, Any]) -> None:
+    start_date = draft.get("start_date")
+    if not isinstance(start_date, date):
+        return
+    if draft.get("issue_day_blank"):
+        draft["issue_date"] = date(start_date.year, start_date.month, 1)
+        return
+    current = draft.get("issue_date")
+    preferred_day = current.day if isinstance(current, date) else start_date.day
+    last_day = monthrange(start_date.year, start_date.month)[1]
+    draft["issue_date"] = date(
+        start_date.year, start_date.month, min(preferred_day, last_day)
+    )
+
+
+def letter_year(draft: dict[str, Any]) -> int:
+    start_date = draft.get("start_date")
+    return start_date.year if isinstance(start_date, date) else date.today().year
+
+
 async def ask_issue_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    draft = get_draft(context)
+    start_date = draft["start_date"]
     context.user_data["state"] = "create_issue_date"
     await update.effective_message.reply_text(
-        "🖊 <b>TANGGAL PENETAPAN SURAT</b>\n\nKetik tanggal atau gunakan tanggal hari ini.",
+        "🖊 <b>TANGGAL PENETAPAN SURAT</b>\n\n"
+        f"Ketik <b>angka tanggal saja</b> (1-{monthrange(start_date.year, start_date.month)[1]}). "
+        f"Bulan dan tahun otomatis mengikuti jadwal berangkat: "
+        f"<b>{format_month_year_id(start_date)}</b>.\n\n"
+        "Tanggal boleh dilewati terlebih dahulu; hanya angka tanggal yang dikosongkan, "
+        "sedangkan bulan dan tahun tetap dicetak.",
         parse_mode=ParseMode.HTML,
         reply_markup=InlineKeyboardMarkup(
-            [[menu_button(f"📅 Hari ini ({format_date_id(date.today())})", "create:issue_today")]]
+            [
+                [menu_button(
+                    f"📅 Gunakan tanggal berangkat ({format_date_id(start_date)})",
+                    "create:issue_start",
+                )],
+                [menu_button(
+                    f"⏭ Kosongkan tanggal ({format_month_year_id(start_date)})",
+                    "create:issue_blank",
+                )],
+            ]
         ),
     )
 
@@ -357,8 +419,7 @@ async def ask_number(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     draft = get_draft(context)
     suggested = db.suggest_next_sequence()
     draft["suggested_sequence"] = suggested
-    issue_date = draft["issue_date"]
-    full = db.format_full_number(suggested, issue_date.year)
+    full = db.format_full_number(suggested, letter_year(draft))
     context.user_data["state"] = "create_number"
     await edit_or_reply(
         update,
@@ -402,7 +463,7 @@ def preview_text(context: ContextTypes.DEFAULT_TYPE) -> str:
         f"<b>Tujuan</b>\n{esc(draft['destination'])}\n\n"
         f"<b>Tanggal</b>\n{format_date_range_id(draft['start_date'], draft['end_date'])}\n"
         f"Durasi: <b>{duration} hari</b>\n\n"
-        f"<b>Tanggal Penetapan</b>\n{format_date_id(draft['issue_date'])}\n\n"
+        f"<b>Tanggal Penetapan</b>\n{format_issue_date_id(draft['issue_date'], bool(draft.get('issue_day_blank')))}\n\n"
         f"<b>Dasar 4</b>\n{esc(draft.get('legal_base_4') or 'Dihilangkan')}\n\n"
         f"<b>UNTUK</b>\n{esc(draft['purpose_text'])}"
     )
@@ -486,6 +547,7 @@ async def generate_letter(
             destination=draft["destination"],
             activity=draft["activity"],
             issue_date=draft["issue_date"],
+            issue_day_blank=bool(draft.get("issue_day_blank")),
             employees=employees,
             legal_bases=legal_bases,
             purpose_text=draft["purpose_text"],
@@ -507,6 +569,7 @@ async def generate_letter(
             end_date=draft["end_date"].isoformat(),
             duration_days=(draft["end_date"] - draft["start_date"]).days + 1,
             issue_date=draft["issue_date"].isoformat(),
+            issue_day_blank=bool(draft.get("issue_day_blank")),
             employees=employees,
             legal_bases=legal_bases,
             created_by_user_id=user["id"],
@@ -577,6 +640,7 @@ async def generate_tnde_export(update: Update, context: ContextTypes.DEFAULT_TYP
             destination=draft["destination"],
             activity=draft["activity"],
             issue_date=draft["issue_date"],
+            issue_day_blank=bool(draft.get("issue_day_blank")),
             employees=employees,
             legal_bases=legal_bases,
             purpose_text=draft["purpose_text"],
@@ -639,6 +703,7 @@ async def export_tnde_from_history(update: Update, letter_id: int) -> None:
             destination=item["destination"],
             activity=item["activity"],
             issue_date=date.fromisoformat(item["issue_date"]),
+            issue_day_blank=bool(item.get("issue_day_blank")),
             employees=list(item.get("employees") or []),
             legal_bases=list(item.get("legal_bases") or []),
             purpose_text=item["purpose_text"],
@@ -696,6 +761,8 @@ async def show_letter_detail(update: Update, context: ContextTypes.DEFAULT_TYPE,
         f"<b>Tujuan</b>\n{esc(item['destination'])}\n\n"
         f"<b>Pegawai</b>\n{employees}\n\n"
         f"<b>Tanggal</b>\n{item['start_date']} s.d. {item['end_date']}\n\n"
+        f"<b>Tanggal Penetapan</b>\n"
+        f"{format_issue_date_id(date.fromisoformat(item['issue_date']), bool(item.get('issue_day_blank')))}\n\n"
         f"<b>UNTUK</b>\n{esc(item['purpose_text'])}\n\n"
         f"Versi: <b>{item['version']}</b> • Dibuat oleh: {esc(item['creator_name'])}"
     )
@@ -742,18 +809,26 @@ def load_letter_to_draft(context: ContextTypes.DEFAULT_TYPE, item: dict[str, Any
     if legacy_snapshot:
         saved_legal_bases = []
     optional_legal_base_4 = saved_legal_bases[3] if len(saved_legal_bases) > 3 else None
+    stored_issue_date = date.fromisoformat(item["issue_date"])
+    issue_day_blank = bool(item.get("issue_day_blank"))
+    preferred_issue_day = stored_issue_date.day if not issue_day_blank else 1
+    try:
+        issue_date = issue_date_from_day(start, preferred_issue_day)
+    except ValueError:
+        issue_date = start
+        issue_day_blank = False
     if revision:
         sequence = int(item["sequence_number"])
         full_number = (
             item["full_number"] if sequence > 0
-            else db.format_blank_full_number(date.today().year)
+            else db.format_blank_full_number(start.year)
         )
         version = int(item["version"]) + 1
         parent_letter_id = int(item["id"])
         primary_legal_bases = saved_legal_bases[:3] or None
     else:
         sequence = db.suggest_next_sequence()
-        full_number = db.format_full_number(sequence, date.today().year)
+        full_number = db.format_full_number(sequence, start.year)
         version = 1
         parent_letter_id = None
         primary_legal_bases = None
@@ -763,7 +838,8 @@ def load_letter_to_draft(context: ContextTypes.DEFAULT_TYPE, item: dict[str, Any
         "activity": item["activity"],
         "start_date": start,
         "end_date": end,
-        "issue_date": date.today(),
+        "issue_date": issue_date,
+        "issue_day_blank": issue_day_blank,
         "sequence_number": sequence,
         "full_number": full_number,
         "purpose_text": build_purpose_text(
@@ -980,6 +1056,14 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 raise ValueError("Tanggal pulang tidak boleh lebih awal dari tanggal berangkat.")
             draft["end_date"] = value
             refresh_auto_purpose(draft)
+            if context.user_data.get("edit_dates"):
+                sync_issue_date_to_start(draft)
+                sequence = int(draft.get("sequence_number") or 0)
+                draft["full_number"] = (
+                    db.format_full_number(sequence, letter_year(draft))
+                    if sequence > 0
+                    else db.format_blank_full_number(letter_year(draft))
+                )
             if context.user_data.pop("edit_dates", False):
                 await show_preview(update, context)
             else:
@@ -987,12 +1071,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             return
 
         if state == "create_issue_date":
-            draft["issue_date"] = parse_date_id(text)
+            draft["issue_date"] = parse_issue_day_for_start(text, draft["start_date"])
+            draft["issue_day_blank"] = False
             if context.user_data.pop("edit_return", False):
                 sequence = int(draft.get("sequence_number") or 0)
                 draft["full_number"] = (
-                    db.format_full_number(sequence, draft["issue_date"].year)
-                    if sequence > 0 else db.format_blank_full_number(draft["issue_date"].year)
+                    db.format_full_number(sequence, letter_year(draft))
+                    if sequence > 0 else db.format_blank_full_number(letter_year(draft))
                 )
                 await show_preview(update, context)
             else:
@@ -1009,7 +1094,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             if sequence <= 0:
                 raise ValueError("Nomor urut harus lebih dari 0.")
             draft["sequence_number"] = sequence
-            draft["full_number"] = db.format_full_number(sequence, draft["issue_date"].year)
+            draft["full_number"] = db.format_full_number(sequence, letter_year(draft))
             await show_preview(update, context)
             return
 
@@ -1174,14 +1259,28 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await edit_or_reply(update, text, keyboard)
     elif data == "create:emp_done":
         await create_employee_done(update, context)
-    elif data == "create:issue_today":
+    elif data in {"create:issue_start", "create:issue_blank", "create:issue_today"}:
         draft = get_draft(context)
-        draft["issue_date"] = date.today()
+        start_date = draft["start_date"]
+        if data == "create:issue_blank":
+            draft["issue_date"] = date(start_date.year, start_date.month, 1)
+            draft["issue_day_blank"] = True
+        elif data == "create:issue_start":
+            draft["issue_date"] = start_date
+            draft["issue_day_blank"] = False
+        else:
+            # Backward compatibility for an old Telegram button already visible
+            # in a user's chat: use today's day, but keep the travel month/year.
+            last_day = monthrange(start_date.year, start_date.month)[1]
+            draft["issue_date"] = date(
+                start_date.year, start_date.month, min(date.today().day, last_day)
+            )
+            draft["issue_day_blank"] = False
         if context.user_data.pop("edit_return", False):
             sequence = int(draft.get("sequence_number") or 0)
             draft["full_number"] = (
-                db.format_full_number(sequence, draft["issue_date"].year)
-                if sequence > 0 else db.format_blank_full_number(draft["issue_date"].year)
+                db.format_full_number(sequence, letter_year(draft))
+                if sequence > 0 else db.format_blank_full_number(letter_year(draft))
             )
             await show_preview(update, context)
         else:
@@ -1206,13 +1305,13 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     elif data == "create:number_blank":
         draft = get_draft(context)
         draft["sequence_number"] = 0
-        draft["full_number"] = db.format_blank_full_number(draft["issue_date"].year)
+        draft["full_number"] = db.format_blank_full_number(letter_year(draft))
         await show_preview(update, context)
     elif data == "create:number_suggested":
         draft = get_draft(context)
         sequence = int(draft.get("suggested_sequence") or db.suggest_next_sequence())
         draft["sequence_number"] = sequence
-        draft["full_number"] = db.format_full_number(sequence, draft["issue_date"].year)
+        draft["full_number"] = db.format_full_number(sequence, letter_year(draft))
         await show_preview(update, context)
     elif data == "create:generate":
         await ask_signature_choice(update, context)
@@ -1245,15 +1344,8 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         context.user_data["edit_dates"] = True
         await edit_or_reply(update, "📅 Ketik tanggal berangkat baru (DD-MM-YYYY).")
     elif data == "create:edit_issue":
-        context.user_data["state"] = "create_issue_date"
         context.user_data["edit_return"] = True
-        await edit_or_reply(
-            update,
-            "🖊 Ketik tanggal penetapan baru (DD-MM-YYYY) atau gunakan hari ini.",
-            InlineKeyboardMarkup(
-                [[menu_button(f"📅 Hari ini ({format_date_id(date.today())})", "create:issue_today")]]
-            ),
-        )
+        await ask_issue_date(update, context)
     elif data == "create:edit_legal4":
         context.user_data["edit_legal4_return"] = True
         await ask_legal_base_4(update, context)
@@ -1421,7 +1513,7 @@ def main() -> None:
     ensure_runtime_directories()
     db.initialize()
     application = build_application()
-    logger.info("Bot Surat Tugas v3.1.0 mulai berjalan")
+    logger.info("Bot Surat Tugas v3.2.0 mulai berjalan")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

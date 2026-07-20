@@ -18,7 +18,7 @@ from docx.shared import Inches, Pt
 from docx.text.paragraph import Paragraph
 
 from config import DOCUMENTS_DIR, SIGNATURE_IMAGE_PATH, TEMPLATE_PATH, TNDE_TEMPLATE_PATH
-from utils import clean_rank, format_date_id, slugify
+from utils import clean_rank, format_date_id, format_month_year_id, slugify
 
 
 class DocumentGenerationError(RuntimeError):
@@ -367,7 +367,12 @@ def _replace_purpose(doc: Document, purpose_text: str) -> None:
     raise DocumentGenerationError("Bagian UNTUK tidak ditemukan pada template.")
 
 
-def _replace_signature_block(doc: Document, issue_date: date, issue_city: str) -> None:
+def _replace_signature_block(
+    doc: Document,
+    issue_date: date,
+    issue_city: str,
+    issue_day_blank: bool = False,
+) -> None:
     """Update only city/date text and preserve the signature layout verbatim.
 
     The official template can contain intentional blank paragraphs, spacing, and
@@ -391,7 +396,12 @@ def _replace_signature_block(doc: Document, issue_date: date, issue_city: str) -
             paragraph.paragraph_format.left_indent = SIGNATURE_TEXT_LEFT_INDENT
             found_city = True
         elif text.startswith("pada tanggal"):
-            _set_paragraph_text_preserve_objects(paragraph, f"pada tanggal {format_date_id(issue_date)}")
+            date_text = (
+                f"{'\u00A0' * 10}{format_month_year_id(issue_date)}"
+                if issue_day_blank
+                else format_date_id(issue_date)
+            )
+            _set_paragraph_text_preserve_objects(paragraph, f"pada tanggal {date_text}")
             paragraph.paragraph_format.left_indent = SIGNATURE_TEXT_LEFT_INDENT
             found_date = True
 
@@ -405,7 +415,12 @@ def _replace_signature_block(doc: Document, issue_date: date, issue_city: str) -
     if not found_date:
         target = next((p for p in right.paragraphs if not p.text.strip()), None)
         target = target or right.add_paragraph()
-        _set_paragraph_text(target, f"pada tanggal {format_date_id(issue_date)}")
+        date_text = (
+            f"{'\u00A0' * 10}{format_month_year_id(issue_date)}"
+            if issue_day_blank
+            else format_date_id(issue_date)
+        )
+        _set_paragraph_text(target, f"pada tanggal {date_text}")
         target.paragraph_format.left_indent = SIGNATURE_TEXT_LEFT_INDENT
 
     # Font is normalized without touching paragraph spacing, empty paragraphs,
@@ -567,6 +582,7 @@ def generate_docx(
     destination: str,
     activity: str,
     issue_date: date,
+    issue_day_blank: bool = False,
     employees: list[dict[str, Any]],
     legal_bases: list[str],
     purpose_text: str,
@@ -599,7 +615,7 @@ def generate_docx(
     _replace_legal_bases(doc, legal_bases)
     _replace_employee_table(doc, employees)
     _replace_purpose(doc, purpose_text)
-    _replace_signature_block(doc, issue_date, issue_city)
+    _replace_signature_block(doc, issue_date, issue_city, issue_day_blank)
     if include_signature:
         _insert_default_signature_image(doc)
     _normalize_body_font(doc)
@@ -613,6 +629,7 @@ def generate_tnde_docx(
     destination: str,
     activity: str,
     issue_date: date,
+    issue_day_blank: bool = False,
     employees: list[dict[str, Any]],
     legal_bases: list[str],
     purpose_text: str,
@@ -651,7 +668,7 @@ def generate_tnde_docx(
     _replace_legal_bases(doc, legal_bases)
     _replace_employee_table(doc, employees)
     _replace_purpose(doc, purpose_text)
-    _replace_signature_block(doc, issue_date, issue_city)
+    _replace_signature_block(doc, issue_date, issue_city, issue_day_blank)
     if doc.tables and doc.tables[-1].rows:
         _set_row_cant_split(doc.tables[-1].rows[0])
     _normalize_body_font(doc)

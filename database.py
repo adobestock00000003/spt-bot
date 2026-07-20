@@ -81,6 +81,7 @@ class Database:
                     end_date TEXT NOT NULL,
                     duration_days INTEGER NOT NULL,
                     issue_date TEXT NOT NULL,
+                    issue_day_blank INTEGER NOT NULL DEFAULT 0,
                     employee_snapshot_json TEXT NOT NULL,
                     legal_snapshot_json TEXT NOT NULL,
                     created_by INTEGER NOT NULL,
@@ -100,12 +101,22 @@ class Database:
                 """
             )
 
+        self._migrate_issue_day_blank_column()
         self._seed_settings()
         self._seed_employees()
         self._seed_legal_bases()
         self._migrate_legacy_default_legal_bases()
         self._migrate_ali_afandi_position_casing()
         self._sync_admins_from_env()
+
+    def _migrate_issue_day_blank_column(self) -> None:
+        """Add the optional blank-day flag without deleting existing Railway data."""
+        with self.connect() as conn:
+            columns = {row["name"] for row in conn.execute("PRAGMA table_info(letters)").fetchall()}
+            if "issue_day_blank" not in columns:
+                conn.execute(
+                    "ALTER TABLE letters ADD COLUMN issue_day_blank INTEGER NOT NULL DEFAULT 0"
+                )
 
     def _seed_settings(self) -> None:
         defaults = {
@@ -400,6 +411,7 @@ class Database:
         end_date: str,
         duration_days: int,
         issue_date: str,
+        issue_day_blank: bool = False,
         employees: list[dict[str, Any]],
         legal_bases: list[str],
         created_by_user_id: int,
@@ -415,10 +427,10 @@ class Database:
                 INSERT INTO letters(
                     letter_uuid, sequence_number, full_number, destination, activity,
                     event_name, purpose_text, start_date, end_date, duration_days,
-                    issue_date, employee_snapshot_json, legal_snapshot_json,
+                    issue_date, issue_day_blank, employee_snapshot_json, legal_snapshot_json,
                     created_by, created_at, version, parent_letter_id,
                     docx_path, pdf_path
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     letter_uuid,
@@ -432,6 +444,7 @@ class Database:
                     end_date,
                     duration_days,
                     issue_date,
+                    int(bool(issue_day_blank)),
                     json.dumps(employees, ensure_ascii=False),
                     json.dumps(legal_bases, ensure_ascii=False),
                     created_by_user_id,
@@ -482,7 +495,7 @@ class Database:
     def list_letters(self, limit: int = 10, search: str | None = None) -> list[sqlite3.Row]:
         sql = """
             SELECT l.id, l.sequence_number, l.full_number, l.destination, l.activity, l.event_name,
-                   l.start_date, l.end_date, l.issue_date, l.version, l.created_at,
+                   l.start_date, l.end_date, l.issue_date, l.issue_day_blank, l.version, l.created_at,
                    u.display_name AS creator_name
             FROM letters l
             JOIN users u ON u.id=l.created_by

@@ -49,6 +49,16 @@ def format_date_id(value: date) -> str:
     return f"{value.day} {MONTHS_ID[value.month]} {value.year}"
 
 
+def format_month_year_id(value: date) -> str:
+    return f"{MONTHS_ID[value.month]} {value.year}"
+
+
+def format_issue_date_id(value: date, day_blank: bool = False) -> str:
+    if day_blank:
+        return f"Tanggal dikosongkan — {format_month_year_id(value)}"
+    return format_date_id(value)
+
+
 def format_date_range_id(start: date, end: date) -> str:
     if start == end:
         return format_date_id(start)

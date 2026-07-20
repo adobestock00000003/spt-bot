@@ -198,3 +198,7 @@ Versi 2.9 sudah menyertakan asset tanda tangan default pada folder `assets`. Tid
 ## v3.0 - tanda tangan opsional
 
 Pada preview pilih **Buat DOCX + PDF**, lalu bot akan meminta pilihan **Pakai Tanda Tangan** atau **Tanpa Tanda Tangan**. Export TNDE tetap tanpa gambar tanda tangan manual.
+
+
+## Update v3.2
+Redeploy source code tanpa menghapus Volume `/data`. Saat startup, bot otomatis menambahkan kolom `issue_day_blank` ke database lama bila belum ada.

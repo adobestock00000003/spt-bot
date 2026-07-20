@@ -2,7 +2,15 @@
 
 Bot Telegram untuk membuat, menyimpan, mengunduh, menduplikasi, dan merevisi Surat Tugas berdasarkan template resmi Word yang diberikan.
 
-## Fitur versi 2.9
+## Tanggal penetapan opsional (v3.2)
+- Saat membuat surat, operator cukup mengetik angka tanggal penetapan (1–31).
+- Bulan dan tahun otomatis mengikuti tanggal berangkat.
+- Tombol **Kosongkan tanggal** membiarkan angka tanggal kosong, tetapi tetap mencetak bulan dan tahun perjalanan.
+- Contoh hasil: `pada tanggal          Juni 2026`.
+- Status kosong tersimpan dalam riwayat dan tetap berlaku saat revisi, duplikasi, atau export TNDE.
+
+
+## Fitur versi 3.2
 
 - Pembuatan Surat Tugas melalui tombol Telegram.
 - Multi-pilih pegawai dari 24 data pegawai pada Excel `DATA PEGAWAI BID PEMASARAN.xlsx`.
@@ -34,9 +42,9 @@ Bot Telegram untuk membuat, menyimpan, mengunduh, menduplikasi, dan merevisi Sur
 - Statistik sederhana.
 - Penyimpanan persisten kompatibel dengan Railway Volume di `/data`.
 
-### Tanda tangan Kepala Dinas otomatis
+### Tanda tangan Kepala Dinas opsional
 
-Surat Tugas biasa otomatis memakai tanda tangan Kepala Dinas yang sudah disertakan pada folder `assets`. Tanda tangan ditempatkan pada ruang tanda tangan tanpa menghapus space kosong template. Export TNDE **tidak** memakai gambar tanda tangan.
+Surat Tugas biasa menyediakan pilihan **Pakai Tanda Tangan** atau **Tanpa Tanda Tangan**. Asset tanda tangan sudah disertakan pada folder `assets` dan ditempatkan pada ruang tanda tangan tanpa menghapus space kosong template. Export TNDE **tidak** memakai gambar tanda tangan.
 
 ### Export TNDE v2.8
 

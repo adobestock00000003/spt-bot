@@ -1,3 +1,13 @@
+# Changelog
+
+## v3.2.0 — Tanggal penetapan opsional
+- Tanggal (angka hari) penetapan surat dapat dilewati/dikosongkan terlebih dahulu.
+- Bulan dan tahun penetapan selalu otomatis mengikuti bulan dan tahun jadwal berangkat.
+- Jika dikosongkan, dokumen menampilkan ruang tanggal yang lebar sebelum nama bulan dan tahun, misalnya `pada tanggal          Juni 2026`.
+- Input penetapan cukup berupa angka hari 1–31; format tanggal lengkap masih diterima, tetapi bulan/tahun tetap disamakan dengan jadwal berangkat.
+- Preview, riwayat, revisi, duplikasi, export standar, dan TNDE mempertahankan status tanggal kosong.
+- Migrasi database otomatis menambahkan kolom `issue_day_blank`; Volume `/data` lama tetap aman.
+
 ## v3.1.0
 
 - Ukuran tanda tangan Kepala Dinas disesuaikan dengan contoh SPT 2026 FIX(1).
@@ -24,8 +34,6 @@
 - Gambar tanda tangan dibuat transparan dan hanya padding transparan yang dipangkas; goresan tanda tangan tidak diubah.
 - Tanda tangan ditempatkan sebagai overlay pada ruang kosong resmi di blok Kepala Dinas sehingga space template tidak dihapus atau dipadatkan.
 - Pagination dan pemeriksaan NIP Kepala Dinas tetap aktif untuk kasus pegawai banyak.
-
-# Changelog
 
 ## v2.8.0
 
