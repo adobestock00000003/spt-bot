@@ -106,6 +106,49 @@ def main() -> None:
             assert b"Tanda Tangan Kepala Dinas" not in document_xml, "TNDE tidak boleh memakai gambar tanda tangan manual."
         tnde_pdf = convert_tnde_docx_to_pdf(tnde_docx)
 
+        # Database regression: complete/re-export the same letter row without
+        # increasing the number of stored letters.
+        user_id = database.upsert_user(999001, "Smoke Tester", "admin", active=True)
+        letter_id = database.create_letter(
+            letter_uuid="smoke-completion-letter",
+            sequence_number=0,
+            full_number=database.format_blank_full_number(2026),
+            destination="Kabupaten Ponorogo",
+            activity="pendampingan dan pembuatan konten video KYAI LODRA",
+            event_name="",
+            purpose_text=purpose,
+            start_date=start.isoformat(),
+            end_date=end.isoformat(),
+            duration_days=4,
+            issue_date=date(2026, 6, 1).isoformat(),
+            issue_day_blank=True,
+            include_signature=False,
+            employees=[wisnu, riza],
+            legal_bases=legal_bases,
+            created_by_user_id=user_id,
+            version=1,
+            docx_path=str(unsigned_docx),
+            pdf_path=str(unsigned_pdf or ""),
+        )
+        before_count = database.statistics()["letters"]
+        database.update_letter_completion(
+            letter_id,
+            sequence_number=123,
+            full_number=database.format_full_number(123, 2026),
+            issue_date=date(2026, 6, 10).isoformat(),
+            issue_day_blank=False,
+            include_signature=True,
+            version=2,
+            docx_path=str(docx),
+            pdf_path=str(pdf or ""),
+        )
+        completed = database.get_letter(letter_id)
+        assert database.statistics()["letters"] == before_count
+        assert completed and completed["sequence_number"] == 123
+        assert completed["issue_day_blank"] == 0
+        assert completed["include_signature"] == 1
+        assert completed["version"] == 2
+
         print(f"DOCX 2 pegawai OK: {docx}")
         print(f"PDF 2 pegawai dengan TTD: {pdf if pdf else 'LibreOffice tidak tersedia'}")
         print(f"DOCX 2 pegawai tanpa TTD OK: {unsigned_docx}")
@@ -114,6 +157,7 @@ def main() -> None:
         print(f"PDF 12 pegawai: {stress_pdf if stress_pdf else 'LibreOffice tidak tersedia'}")
         print(f"DOCX TNDE OK: {tnde_docx}")
         print(f"PDF TNDE: {tnde_pdf if tnde_pdf else 'LibreOffice tidak tersedia'}")
+        print("Database completion/re-export OK: surat diperbarui tanpa menambah riwayat")
 
 
 if __name__ == "__main__":

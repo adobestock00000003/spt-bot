@@ -121,6 +121,7 @@ def reset_flow(context: ContextTypes.DEFAULT_TYPE) -> None:
         "edit_dates",
         "emp_edit_return",
         "edit_legal4_return",
+        "completion",
     ):
         context.user_data.pop(key, None)
 
@@ -570,6 +571,7 @@ async def generate_letter(
             duration_days=(draft["end_date"] - draft["start_date"]).days + 1,
             issue_date=draft["issue_date"].isoformat(),
             issue_day_blank=bool(draft.get("issue_day_blank")),
+            include_signature=include_signature,
             employees=employees,
             legal_bases=legal_bases,
             created_by_user_id=user["id"],
@@ -606,6 +608,7 @@ async def generate_letter(
         "Pilih tindakan selanjutnya:",
         reply_markup=InlineKeyboardMarkup(
             [
+                [menu_button("🛠 Lengkapi Nomor / Tanggal / TTD", f"history:complete:{letter_id}")],
                 [menu_button("🧾 Export Versi TNDE", f"history:tnde:{letter_id}")],
                 [menu_button("📋 Lihat Riwayat", "history:list")],
                 [menu_button("➕ Buat Surat Lagi", "create:start")],
@@ -755,6 +758,7 @@ async def show_letter_detail(update: Update, context: ContextTypes.DEFAULT_TYPE,
         f"{i}. {esc(emp.get('name',''))}" for i, emp in enumerate(item["employees"], start=1)
     )
     detail_number = item["full_number"] if int(item.get("sequence_number") or 0) > 0 else "Belum ada nomor (dikosongkan)"
+    signature_label = "Dengan tanda tangan Kepala Dinas" if bool(item.get("include_signature")) else "Tanpa tanda tangan"
     text = (
         "📄 <b>DETAIL SURAT TUGAS</b>\n\n"
         f"<b>Nomor</b>\n<code>{esc(detail_number)}</code>\n\n"
@@ -763,6 +767,7 @@ async def show_letter_detail(update: Update, context: ContextTypes.DEFAULT_TYPE,
         f"<b>Tanggal</b>\n{item['start_date']} s.d. {item['end_date']}\n\n"
         f"<b>Tanggal Penetapan</b>\n"
         f"{format_issue_date_id(date.fromisoformat(item['issue_date']), bool(item.get('issue_day_blank')))}\n\n"
+        f"<b>Tanda Tangan</b>\n{esc(signature_label)}\n\n"
         f"<b>UNTUK</b>\n{esc(item['purpose_text'])}\n\n"
         f"Versi: <b>{item['version']}</b> • Dibuat oleh: {esc(item['creator_name'])}"
     )
@@ -771,10 +776,11 @@ async def show_letter_detail(update: Update, context: ContextTypes.DEFAULT_TYPE,
             menu_button("📄 Kirim DOCX", f"history:send_docx:{letter_id}"),
             menu_button("📕 Kirim PDF", f"history:send_pdf:{letter_id}"),
         ],
+        [menu_button("🛠 Lengkapi Nomor / Tanggal / TTD", f"history:complete:{letter_id}")],
         [menu_button("🧾 Export Versi TNDE", f"history:tnde:{letter_id}")],
         [
             menu_button("📋 Duplikat", f"history:duplicate:{letter_id}"),
-            menu_button("✏️ Revisi", f"history:revise:{letter_id}"),
+            menu_button("✏️ Revisi Isi Lengkap", f"history:revise:{letter_id}"),
         ],
         [menu_button("⬅️ Kembali", "history:list")],
     ]
@@ -852,6 +858,254 @@ def load_letter_to_draft(context: ContextTypes.DEFAULT_TYPE, item: dict[str, Any
     }
     if primary_legal_bases:
         context.user_data["draft"]["legal_bases"] = primary_legal_bases
+
+
+# ---------- Complete an already-exported letter ----------
+
+def get_completion(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
+    completion = context.user_data.get("completion")
+    if not isinstance(completion, dict):
+        completion = {}
+        context.user_data["completion"] = completion
+    return completion
+
+
+def completion_number_text(completion: dict[str, Any]) -> str:
+    return (
+        completion["full_number"]
+        if int(completion.get("sequence_number") or 0) > 0
+        else "Belum ada nomor (dikosongkan)"
+    )
+
+
+def completion_preview_text(completion: dict[str, Any]) -> str:
+    signature_label = (
+        "Pakai tanda tangan Kepala Dinas"
+        if bool(completion.get("include_signature"))
+        else "Tanpa tanda tangan"
+    )
+    return (
+        "🛠 <b>LENGKAPI SURAT YANG SUDAH DIEKSPOR</b>\n\n"
+        "Surat yang sama akan diperbarui dan diekspor ulang. "
+        "Data pegawai, tujuan, kegiatan, Dasar, dan narasi UNTUK tidak dibuat ulang.\n\n"
+        f"<b>Nomor</b>\n<code>{esc(completion_number_text(completion))}</code>\n\n"
+        f"<b>Tanggal Penetapan</b>\n"
+        f"{format_issue_date_id(completion['issue_date'], bool(completion.get('issue_day_blank')))}\n\n"
+        f"<b>Tanda Tangan</b>\n{esc(signature_label)}\n\n"
+        f"Versi tersimpan: <b>{int(completion.get('current_version') or 1)}</b> → "
+        f"akan menjadi <b>{int(completion.get('current_version') or 1) + 1}</b>"
+    )
+
+
+def completion_markup(letter_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [menu_button("🔢 Isi / Ubah Nomor Surat", "completion:number")],
+            [menu_button("🖊 Isi / Ubah Tanggal Penetapan", "completion:issue")],
+            [
+                menu_button("✍️ Pakai Tanda Tangan", "completion:signed"),
+                menu_button("🚫 Tanpa Tanda Tangan", "completion:unsigned"),
+            ],
+            [menu_button("✅ Export Ulang Surat yang Sama", "completion:generate")],
+            [menu_button("⬅️ Kembali ke Detail", f"history:view:{letter_id}")],
+        ]
+    )
+
+
+async def show_completion_preview(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    completion = get_completion(context)
+    letter_id = int(completion.get("letter_id") or 0)
+    if not letter_id:
+        await edit_or_reply(update, "⚠️ Data surat yang akan dilengkapi tidak ditemukan.")
+        return
+    context.user_data["state"] = None
+    await edit_or_reply(
+        update,
+        completion_preview_text(completion),
+        completion_markup(letter_id),
+    )
+
+
+async def start_letter_completion(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    letter_id: int,
+) -> None:
+    if not await require_access(update):
+        return
+    item = db.get_letter(letter_id)
+    if not item:
+        await update.callback_query.answer("Surat tidak ditemukan.", show_alert=True)
+        return
+    reset_flow(context)
+    start_date = date.fromisoformat(item["start_date"])
+    stored_issue_date = date.fromisoformat(item["issue_date"])
+    issue_day_blank = bool(item.get("issue_day_blank"))
+    # Always keep the issue month/year synchronized with the travel start month/year.
+    preferred_day = stored_issue_date.day if not issue_day_blank else 1
+    try:
+        issue_date = issue_date_from_day(start_date, preferred_day)
+    except ValueError:
+        issue_date = start_date
+        issue_day_blank = False
+    sequence = int(item.get("sequence_number") or 0)
+    context.user_data["completion"] = {
+        "letter_id": int(item["id"]),
+        "sequence_number": sequence,
+        "full_number": (
+            item["full_number"]
+            if sequence > 0
+            else db.format_blank_full_number(start_date.year)
+        ),
+        "start_date": start_date,
+        "issue_date": issue_date,
+        "issue_day_blank": issue_day_blank,
+        "include_signature": bool(item.get("include_signature")),
+        "current_version": int(item.get("version") or 1),
+    }
+    await show_completion_preview(update, context)
+
+
+async def ask_completion_number(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    completion = get_completion(context)
+    suggested = db.suggest_next_sequence()
+    completion["suggested_sequence"] = suggested
+    context.user_data["state"] = "completion_number"
+    await edit_or_reply(
+        update,
+        "🔢 <b>ISI / UBAH NOMOR SURAT</b>\n\n"
+        f"Saran nomor berikutnya:\n<code>{esc(db.format_full_number(suggested, completion['start_date'].year))}</code>\n\n"
+        "Tekan Gunakan, ketik nomor urut lain, atau tetap kosongkan.",
+        InlineKeyboardMarkup(
+            [
+                [menu_button(f"✅ Gunakan {suggested}", "completion:number_suggested")],
+                [menu_button("⏭ Tetap Kosongkan Nomor", "completion:number_blank")],
+                [menu_button("⬅️ Kembali", "completion:preview")],
+            ]
+        ),
+    )
+
+
+async def ask_completion_issue_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    completion = get_completion(context)
+    start_date = completion["start_date"]
+    context.user_data["state"] = "completion_issue_date"
+    await edit_or_reply(
+        update,
+        "🖊 <b>ISI / UBAH TANGGAL PENETAPAN</b>\n\n"
+        f"Ketik angka tanggal saja (1-{monthrange(start_date.year, start_date.month)[1]}). "
+        f"Bulan dan tahun tetap mengikuti jadwal berangkat: "
+        f"<b>{format_month_year_id(start_date)}</b>.",
+        InlineKeyboardMarkup(
+            [
+                [menu_button(
+                    f"📅 Gunakan tanggal berangkat ({format_date_id(start_date)})",
+                    "completion:issue_start",
+                )],
+                [menu_button(
+                    f"⏭ Tetap Kosongkan Tanggal ({format_month_year_id(start_date)})",
+                    "completion:issue_blank",
+                )],
+                [menu_button("⬅️ Kembali", "completion:preview")],
+            ]
+        ),
+    )
+
+
+async def regenerate_completed_letter(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    user = await require_access(update)
+    if not user:
+        return
+    query = update.callback_query
+    completion = get_completion(context)
+    letter_id = int(completion.get("letter_id") or 0)
+    item = db.get_letter(letter_id)
+    if not item:
+        await query.answer("Surat tidak ditemukan.", show_alert=True)
+        return
+    await query.answer("Memperbarui dan mengekspor ulang surat...")
+    issue_city = db.get_setting("issue_city", "Surabaya")
+    next_version = int(item.get("version") or 1) + 1
+    include_signature = bool(completion.get("include_signature"))
+    try:
+        docx_path = await asyncio.to_thread(
+            generate_docx,
+            full_number=completion["full_number"],
+            sequence_number=int(completion.get("sequence_number") or 0),
+            destination=item["destination"],
+            activity=item["activity"],
+            issue_date=completion["issue_date"],
+            issue_day_blank=bool(completion.get("issue_day_blank")),
+            employees=list(item.get("employees") or []),
+            legal_bases=list(item.get("legal_bases") or []),
+            purpose_text=item["purpose_text"],
+            include_signature=include_signature,
+            version=next_version,
+            issue_city=issue_city,
+        )
+        pdf_path = await asyncio.to_thread(convert_docx_to_pdf, docx_path)
+        db.update_letter_completion(
+            letter_id,
+            sequence_number=int(completion.get("sequence_number") or 0),
+            full_number=completion["full_number"],
+            issue_date=completion["issue_date"].isoformat(),
+            issue_day_blank=bool(completion.get("issue_day_blank")),
+            include_signature=include_signature,
+            version=next_version,
+            docx_path=str(docx_path),
+            pdf_path=str(pdf_path) if pdf_path else "",
+        )
+    except Exception as exc:
+        logger.exception("Gagal melengkapi surat yang sudah diekspor")
+        await query.message.reply_text(f"❌ Gagal memperbarui dokumen: {exc}")
+        return
+
+    number_result = completion_number_text(completion)
+    issue_result = format_issue_date_id(
+        completion["issue_date"], bool(completion.get("issue_day_blank"))
+    )
+    signature_result = "Dengan tanda tangan Kepala Dinas" if include_signature else "Tanpa tanda tangan"
+    await query.message.reply_text(
+        "✅ <b>Surat yang sama berhasil diperbarui dan diekspor ulang.</b>\n\n"
+        f"Nomor: <code>{esc(number_result)}</code>\n"
+        f"Tanggal penetapan: <b>{esc(issue_result)}</b>\n"
+        f"Tanda tangan: <b>{esc(signature_result)}</b>\n"
+        f"Versi terbaru: <b>{next_version}</b>\n\n"
+        "Jumlah Surat Tugas di riwayat tidak bertambah.",
+        parse_mode=ParseMode.HTML,
+    )
+    with open(docx_path, "rb") as fh:
+        await query.message.reply_document(
+            document=fh,
+            filename=Path(docx_path).name,
+            caption="📄 File Word revisi terbaru",
+        )
+    if pdf_path and Path(pdf_path).exists():
+        with open(pdf_path, "rb") as fh:
+            await query.message.reply_document(
+                document=fh,
+                filename=Path(pdf_path).name,
+                caption="📕 File PDF revisi terbaru",
+            )
+    else:
+        await query.message.reply_text(
+            "⚠️ File Word berhasil diperbarui, tetapi konversi PDF tidak tersedia di server ini."
+        )
+    reset_flow(context)
+    await query.message.reply_text(
+        "Pilih tindakan selanjutnya:",
+        reply_markup=InlineKeyboardMarkup(
+            [
+                [menu_button("📄 Lihat Detail Surat", f"history:view:{letter_id}")],
+                [menu_button("🛠 Revisi Nomor / Tanggal / TTD Lagi", f"history:complete:{letter_id}")],
+                [menu_button("📋 Riwayat Surat", "history:list")],
+                [menu_button("🏠 Menu Utama", "menu:home")],
+            ]
+        ),
+    )
 
 
 # ---------- Employees ----------
@@ -1102,6 +1356,27 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             draft["purpose_text"] = text
             draft["purpose_manual"] = True
             await show_preview(update, context)
+            return
+
+        if state == "completion_number":
+            completion = get_completion(context)
+            sequence = int(text)
+            if sequence <= 0:
+                raise ValueError("Nomor urut harus lebih dari 0.")
+            completion["sequence_number"] = sequence
+            completion["full_number"] = db.format_full_number(
+                sequence, completion["start_date"].year
+            )
+            await show_completion_preview(update, context)
+            return
+
+        if state == "completion_issue_date":
+            completion = get_completion(context)
+            completion["issue_date"] = parse_issue_day_for_start(
+                text, completion["start_date"]
+            )
+            completion["issue_day_blank"] = False
+            await show_completion_preview(update, context)
             return
 
         if state == "employee_add_name":
@@ -1376,6 +1651,50 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await send_history_file(update, int(data.rsplit(":", 1)[1]), "pdf")
     elif data.startswith("history:tnde:"):
         await export_tnde_from_history(update, int(data.rsplit(":", 1)[1]))
+    elif data.startswith("history:complete:"):
+        await start_letter_completion(
+            update, context, int(data.rsplit(":", 1)[1])
+        )
+    elif data == "completion:preview":
+        await show_completion_preview(update, context)
+    elif data == "completion:number":
+        await ask_completion_number(update, context)
+    elif data == "completion:number_suggested":
+        completion = get_completion(context)
+        sequence = int(completion.get("suggested_sequence") or db.suggest_next_sequence())
+        completion["sequence_number"] = sequence
+        completion["full_number"] = db.format_full_number(
+            sequence, completion["start_date"].year
+        )
+        await show_completion_preview(update, context)
+    elif data == "completion:number_blank":
+        completion = get_completion(context)
+        completion["sequence_number"] = 0
+        completion["full_number"] = db.format_blank_full_number(
+            completion["start_date"].year
+        )
+        await show_completion_preview(update, context)
+    elif data == "completion:issue":
+        await ask_completion_issue_date(update, context)
+    elif data == "completion:issue_start":
+        completion = get_completion(context)
+        completion["issue_date"] = completion["start_date"]
+        completion["issue_day_blank"] = False
+        await show_completion_preview(update, context)
+    elif data == "completion:issue_blank":
+        completion = get_completion(context)
+        start_date = completion["start_date"]
+        completion["issue_date"] = date(start_date.year, start_date.month, 1)
+        completion["issue_day_blank"] = True
+        await show_completion_preview(update, context)
+    elif data == "completion:signed":
+        get_completion(context)["include_signature"] = True
+        await show_completion_preview(update, context)
+    elif data == "completion:unsigned":
+        get_completion(context)["include_signature"] = False
+        await show_completion_preview(update, context)
+    elif data == "completion:generate":
+        await regenerate_completed_letter(update, context)
     elif data.startswith("history:duplicate:"):
         item = db.get_letter(int(data.rsplit(":", 1)[1]))
         if not item:
@@ -1513,7 +1832,7 @@ def main() -> None:
     ensure_runtime_directories()
     db.initialize()
     application = build_application()
-    logger.info("Bot Surat Tugas v3.3.0 mulai berjalan")
+    logger.info("Bot Surat Tugas v3.4.0 mulai berjalan")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 

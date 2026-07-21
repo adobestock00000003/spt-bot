@@ -1,3 +1,13 @@
+## v3.4.0 — Lengkapi surat setelah export
+
+- Menambahkan tombol **Lengkapi Nomor / Tanggal / TTD** setelah Surat Tugas standar selesai diekspor dan pada detail Riwayat Surat.
+- Surat yang sama dapat diisi atau diubah nomor suratnya, tanggal penetapannya, serta pilihan memakai/tidak memakai tanda tangan Kepala Dinas.
+- Export ulang memperbarui baris surat yang sama di database dan menaikkan versi dokumen; jumlah Surat Tugas di riwayat tidak bertambah.
+- Data pegawai, tujuan, kegiatan, Dasar, dan narasi UNTUK tetap memakai snapshot surat lama sehingga tidak perlu membuat Surat Tugas dari awal.
+- Bulan dan tahun penetapan tetap mengikuti bulan/tahun jadwal berangkat; hanya angka tanggal yang dapat diisi atau dikosongkan.
+- Menambahkan penyimpanan status tanda tangan dan waktu pembaruan pada database dengan migrasi otomatis untuk Railway lama.
+- File lama di volume tidak dihapus secara otomatis; Riwayat selalu menunjuk DOCX/PDF versi terbaru.
+
 ## v3.3.0 — Pembaruan Pangkat/Golongan Ismadi
 
 - Pangkat/Golongan **ISMADI, SE., MM.** diubah dari **Penata (III/c)** menjadi **Penata Tk. I (III/d)**.

@@ -82,10 +82,12 @@ class Database:
                     duration_days INTEGER NOT NULL,
                     issue_date TEXT NOT NULL,
                     issue_day_blank INTEGER NOT NULL DEFAULT 0,
+                    include_signature INTEGER NOT NULL DEFAULT 0,
                     employee_snapshot_json TEXT NOT NULL,
                     legal_snapshot_json TEXT NOT NULL,
                     created_by INTEGER NOT NULL,
                     created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL DEFAULT '',
                     version INTEGER NOT NULL DEFAULT 1,
                     parent_letter_id INTEGER,
                     status TEXT NOT NULL DEFAULT 'active',
@@ -101,7 +103,7 @@ class Database:
                 """
             )
 
-        self._migrate_issue_day_blank_column()
+        self._migrate_letter_completion_columns()
         self._seed_settings()
         self._seed_employees()
         self._seed_legal_bases()
@@ -110,14 +112,25 @@ class Database:
         self._migrate_ismadi_rank()
         self._sync_admins_from_env()
 
-    def _migrate_issue_day_blank_column(self) -> None:
-        """Add the optional blank-day flag without deleting existing Railway data."""
+    def _migrate_letter_completion_columns(self) -> None:
+        """Add completion/re-export fields without deleting existing Railway data."""
         with self.connect() as conn:
             columns = {row["name"] for row in conn.execute("PRAGMA table_info(letters)").fetchall()}
             if "issue_day_blank" not in columns:
                 conn.execute(
                     "ALTER TABLE letters ADD COLUMN issue_day_blank INTEGER NOT NULL DEFAULT 0"
                 )
+            if "include_signature" not in columns:
+                conn.execute(
+                    "ALTER TABLE letters ADD COLUMN include_signature INTEGER NOT NULL DEFAULT 0"
+                )
+            if "updated_at" not in columns:
+                conn.execute(
+                    "ALTER TABLE letters ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''"
+                )
+            conn.execute(
+                "UPDATE letters SET updated_at=created_at WHERE updated_at='' OR updated_at IS NULL"
+            )
 
     def _seed_settings(self) -> None:
         defaults = {
@@ -428,6 +441,7 @@ class Database:
         duration_days: int,
         issue_date: str,
         issue_day_blank: bool = False,
+        include_signature: bool = False,
         employees: list[dict[str, Any]],
         legal_bases: list[str],
         created_by_user_id: int,
@@ -443,10 +457,11 @@ class Database:
                 INSERT INTO letters(
                     letter_uuid, sequence_number, full_number, destination, activity,
                     event_name, purpose_text, start_date, end_date, duration_days,
-                    issue_date, issue_day_blank, employee_snapshot_json, legal_snapshot_json,
-                    created_by, created_at, version, parent_letter_id,
+                    issue_date, issue_day_blank, include_signature,
+                    employee_snapshot_json, legal_snapshot_json,
+                    created_by, created_at, updated_at, version, parent_letter_id,
                     docx_path, pdf_path
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     letter_uuid,
@@ -461,9 +476,11 @@ class Database:
                     duration_days,
                     issue_date,
                     int(bool(issue_day_blank)),
+                    int(bool(include_signature)),
                     json.dumps(employees, ensure_ascii=False),
                     json.dumps(legal_bases, ensure_ascii=False),
                     created_by_user_id,
+                    now,
                     now,
                     version,
                     parent_letter_id,
@@ -486,9 +503,62 @@ class Database:
     def update_letter_paths(self, letter_id: int, docx_path: str, pdf_path: str) -> None:
         with self.connect() as conn:
             conn.execute(
-                "UPDATE letters SET docx_path=?, pdf_path=? WHERE id=?",
-                (docx_path, pdf_path, letter_id),
+                "UPDATE letters SET docx_path=?, pdf_path=?, updated_at=? WHERE id=?",
+                (docx_path, pdf_path, datetime.now().isoformat(timespec="seconds"), letter_id),
             )
+
+    def update_letter_completion(
+        self,
+        letter_id: int,
+        *,
+        sequence_number: int,
+        full_number: str,
+        issue_date: str,
+        issue_day_blank: bool,
+        include_signature: bool,
+        version: int,
+        docx_path: str,
+        pdf_path: str,
+    ) -> None:
+        """Update the same stored letter after its number/date/signature is finalized.
+
+        This intentionally does not create a new letter row, so the history count and
+        the letter identity remain unchanged. The document version is incremented and
+        the latest DOCX/PDF paths become the active files in history.
+        """
+        now = datetime.now().isoformat(timespec="seconds")
+        with self.connect() as conn:
+            conn.execute(
+                """
+                UPDATE letters
+                SET sequence_number=?, full_number=?, issue_date=?, issue_day_blank=?,
+                    include_signature=?, version=?, docx_path=?, pdf_path=?, updated_at=?
+                WHERE id=?
+                """,
+                (
+                    int(sequence_number),
+                    full_number,
+                    issue_date,
+                    int(bool(issue_day_blank)),
+                    int(bool(include_signature)),
+                    int(version),
+                    docx_path,
+                    pdf_path,
+                    now,
+                    int(letter_id),
+                ),
+            )
+            if int(sequence_number) > 0:
+                conn.execute(
+                    """
+                    INSERT INTO settings(key, value) VALUES ('last_sequence', ?)
+                    ON CONFLICT(key) DO UPDATE SET value=
+                        CASE
+                            WHEN CAST(excluded.value AS INTEGER) > CAST(settings.value AS INTEGER)
+                            THEN excluded.value ELSE settings.value END
+                    """,
+                    (str(sequence_number),),
+                )
 
     def get_letter(self, letter_id: int) -> dict[str, Any] | None:
         with self.connect() as conn:

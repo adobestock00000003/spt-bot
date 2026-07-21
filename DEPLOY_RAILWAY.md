@@ -107,7 +107,7 @@ Setelah variable dan volume terpasang:
 3. Pastikan muncul log:
 
 ```text
-Bot Surat Tugas mulai berjalan
+Bot Surat Tugas v3.4.0 mulai berjalan
 ```
 
 ## 8. Tes bot
@@ -206,3 +206,11 @@ Redeploy source code tanpa menghapus Volume `/data`. Saat startup, bot otomatis 
 ## Update v3.3
 
 Pangkat/Golongan **ISMADI, SE., MM.** diperbarui menjadi **Penata Tk. I (III/d)**. Setelah source code v3.3 dideploy, bot otomatis memperbarui database lama di Railway saat startup. Jangan menghapus Volume `/data`.
+
+## Update ke v3.4
+
+1. Ganti source code dengan paket v3.4 dan lakukan redeploy.
+2. **Jangan hapus Volume `/data`**.
+3. Saat startup, bot otomatis menambahkan kolom penyimpanan status tanda tangan dan waktu pembaruan ke database lama.
+4. Surat lama tetap tersedia. Dari detail Riwayat, gunakan **Lengkapi Nomor / Tanggal / TTD** untuk memperbarui dan export ulang surat yang sama.
+

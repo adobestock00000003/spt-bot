@@ -209,3 +209,18 @@ Bot tidak menghapus atau merapatkan paragraf kosong/space kosong yang sudah ada 
 ## Tanda tangan Kepala Dinas
 
 Saat membuat Surat Tugas versi standar, bot menanyakan apakah dokumen memakai tanda tangan Kepala Dinas atau tetap kosong. Pilihan tanda tangan tidak berlaku untuk export TNDE; TNDE selalu menggunakan placeholder tanda tangan elektronik.
+
+## Melengkapi surat yang sudah diekspor
+
+Setelah export Surat Tugas standar, tekan **Lengkapi Nomor / Tanggal / TTD**. Fitur ini dapat:
+
+- mengisi atau mengubah nomor surat;
+- mengisi atau mengosongkan angka tanggal penetapan (bulan/tahun tetap mengikuti jadwal berangkat);
+- memilih memakai atau tidak memakai tanda tangan Kepala Dinas;
+- mengekspor ulang DOCX dan PDF sebagai versi berikutnya tanpa menambah jumlah surat di Riwayat.
+
+Riwayat akan menunjuk file versi terbaru. File versi sebelumnya tetap berada di Railway Volume sebagai cadangan dan tidak dihapus otomatis.
+
+Gunakan **Revisi Isi Lengkap** hanya bila pegawai, tujuan, kegiatan, Dasar, atau narasi UNTUK juga perlu diubah.
+
+Fitur yang sama tersedia dari **Riwayat Surat → Detail Surat**.
