@@ -1,3 +1,9 @@
+## v3.3.0 — Pembaruan Pangkat/Golongan Ismadi
+
+- Pangkat/Golongan **ISMADI, SE., MM.** diubah dari **Penata (III/c)** menjadi **Penata Tk. I (III/d)**.
+- Seed JSON dan Excel telah diperbarui.
+- Database Railway lama dimigrasikan otomatis saat bot restart; volume `/data` tidak perlu dihapus.
+
 # Changelog
 
 ## v3.2.0 — Tanggal penetapan opsional

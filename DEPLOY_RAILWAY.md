@@ -202,3 +202,7 @@ Pada preview pilih **Buat DOCX + PDF**, lalu bot akan meminta pilihan **Pakai Ta
 
 ## Update v3.2
 Redeploy source code tanpa menghapus Volume `/data`. Saat startup, bot otomatis menambahkan kolom `issue_day_blank` ke database lama bila belum ada.
+
+## Update v3.3
+
+Pangkat/Golongan **ISMADI, SE., MM.** diperbarui menjadi **Penata Tk. I (III/d)**. Setelah source code v3.3 dideploy, bot otomatis memperbarui database lama di Railway saat startup. Jangan menghapus Volume `/data`.
