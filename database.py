@@ -110,6 +110,7 @@ class Database:
         self._migrate_legacy_default_legal_bases()
         self._migrate_ali_afandi_position_casing()
         self._migrate_ismadi_rank()
+        self._migrate_chandra_rank()
         self._sync_admins_from_env()
 
     def _migrate_letter_completion_columns(self) -> None:
@@ -240,6 +241,21 @@ class Database:
                 UPDATE employees
                 SET rank=?, updated_at=?
                 WHERE UPPER(name) LIKE 'ISMADI%'
+                  AND rank <> ?
+                """,
+                (requested, now, requested),
+            )
+
+    def _migrate_chandra_rank(self) -> None:
+        """Update Chandra Nurhidayat's rank in fresh and existing Railway databases."""
+        requested = "Penata Tk. I (III/d)"
+        now = datetime.now().isoformat(timespec="seconds")
+        with self.connect() as conn:
+            conn.execute(
+                """
+                UPDATE employees
+                SET rank=?, updated_at=?
+                WHERE UPPER(name) LIKE 'CHANDRA NURHIDAYAT%'
                   AND rank <> ?
                 """,
                 (requested, now, requested),

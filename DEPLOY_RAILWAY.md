@@ -107,7 +107,7 @@ Setelah variable dan volume terpasang:
 3. Pastikan muncul log:
 
 ```text
-Bot Surat Tugas v3.4.0 mulai berjalan
+Bot Surat Tugas v3.5.0 mulai berjalan
 ```
 
 ## 8. Tes bot
@@ -214,3 +214,9 @@ Pangkat/Golongan **ISMADI, SE., MM.** diperbarui menjadi **Penata Tk. I (III/d)*
 3. Saat startup, bot otomatis menambahkan kolom penyimpanan status tanda tangan dan waktu pembaruan ke database lama.
 4. Surat lama tetap tersedia. Dari detail Riwayat, gunakan **Lengkapi Nomor / Tanggal / TTD** untuk memperbarui dan export ulang surat yang sama.
 
+
+## Update ke v3.5
+
+1. Ganti source code dengan paket v3.5 dan lakukan redeploy.
+2. Pangkat/Golongan **CHANDRA NURHIDAYAT., S.Hub.,Int.** otomatis diperbarui menjadi **Penata Tk. I (III/d)** pada database lama saat bot startup.
+3. Jangan menghapus Volume `/data`; riwayat surat dan database tetap dipertahankan.

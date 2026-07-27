@@ -1,3 +1,10 @@
+## v3.5.0 — Pembaruan Pangkat/Golongan Chandra Nurhidayat
+
+- Pangkat/Golongan **CHANDRA NURHIDAYAT., S.Hub.,Int.** diubah dari **Penata (III/c)** menjadi **Penata Tk. I (III/d)**.
+- Seed JSON dan Excel diperbarui.
+- Database Railway lama dimigrasikan otomatis saat bot restart; Volume `/data` tidak perlu dihapus.
+- Contoh Surat Tugas 12 pegawai diperbarui agar memakai data pangkat/golongan terbaru.
+
 ## v3.4.0 — Lengkapi surat setelah export
 
 - Menambahkan tombol **Lengkapi Nomor / Tanggal / TTD** setelah Surat Tugas standar selesai diekspor dan pada detail Riwayat Surat.

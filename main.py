@@ -1832,7 +1832,7 @@ def main() -> None:
     ensure_runtime_directories()
     db.initialize()
     application = build_application()
-    logger.info("Bot Surat Tugas v3.4.0 mulai berjalan")
+    logger.info("Bot Surat Tugas v3.5.0 mulai berjalan")
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
